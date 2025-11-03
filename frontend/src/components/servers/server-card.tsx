@@ -49,6 +49,18 @@ const statusConfig: Record<
     className: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
     dotColor: "bg-red-500",
   },
+  downloading: {
+    label: "Downloading",
+    variant: "default",
+    className: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
+    dotColor: "bg-orange-500",
+  },
+  initializing: {
+    label: "Initializing",
+    variant: "default",
+    className: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
+    dotColor: "bg-orange-500",
+  },
   starting: {
     label: "Starting",
     variant: "default",
@@ -86,6 +98,8 @@ export function ServerCard({ server }: ServerCardProps) {
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
 
   const isTransitioning =
+    server.status === "downloading" ||
+    server.status === "initializing" ||
     server.status === "starting" ||
     server.status === "stopping" ||
     startServer.isPending ||

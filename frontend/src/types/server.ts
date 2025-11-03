@@ -14,6 +14,8 @@ export enum ServerType {
 
 export enum ServerStatus {
   STOPPED = "stopped",
+  DOWNLOADING = "downloading",
+  INITIALIZING = "initializing",
   STARTING = "starting",
   RUNNING = "running",
   STOPPING = "stopping",

@@ -53,6 +53,16 @@ const statusConfig: Record<
     className: "bg-red-500/10 text-red-700 dark:text-red-400 border-red-500/20",
     dotColor: "bg-red-500",
   },
+  downloading: {
+    label: "Downloading",
+    className: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
+    dotColor: "bg-orange-500",
+  },
+  initializing: {
+    label: "Initializing",
+    className: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
+    dotColor: "bg-orange-500",
+  },
   starting: {
     label: "Starting",
     className: "bg-orange-500/10 text-orange-700 dark:text-orange-400 border-orange-500/20",
@@ -132,6 +142,8 @@ export function ServerTable({ servers }: ServerTableProps) {
               const memoryPercentage = 65; // Mockup data
 
               const isTransitioning =
+                server.status === "downloading" ||
+                server.status === "initializing" ||
                 server.status === "starting" ||
                 server.status === "stopping";
 

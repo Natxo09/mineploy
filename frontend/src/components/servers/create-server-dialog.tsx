@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   Dialog,
   DialogContent,
@@ -23,8 +23,10 @@ import {
 } from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
 import { useServerActions } from "@/hooks/use-servers";
-import { ServerType } from "@/types";
-import { Loader2 } from "lucide-react";
+import { useWebSocket } from "@/hooks/use-websocket";
+import { ServerLogsViewer } from "@/components/servers/server-logs-viewer";
+import { ServerType, ServerStatus } from "@/types";
+import { Loader2, CheckCircle2 } from "lucide-react";
 
 interface CreateServerDialogProps {
   open: boolean;
@@ -53,8 +55,21 @@ export function CreateServerDialog({ open, onOpenChange }: CreateServerDialogPro
     rcon_port: "",
   });
   const [memoryUnit, setMemoryUnit] = useState<"MB" | "GB">("GB");
-
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // State for showing logs during creation
+  const [showLogs, setShowLogs] = useState(false);
+  const [createdServerId, setCreatedServerId] = useState<number | null>(null);
+  const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null);
+
+  // WebSocket for real-time logs
+  const { logs, connected, clearLogs, disconnect } = useWebSocket({
+    serverId: createdServerId!,
+    enabled: showLogs && createdServerId !== null,
+    onStatusUpdate: (status) => {
+      setServerStatus(status as ServerStatus);
+    },
+  });
 
   const validateForm = () => {
     const newErrors: Record<string, string> = {};
@@ -101,20 +116,11 @@ export function CreateServerDialog({ open, onOpenChange }: CreateServerDialogPro
     };
 
     createServer.mutate(payload, {
-      onSuccess: () => {
-        // Reset form
-        setFormData({
-          name: "",
-          description: "",
-          server_type: ServerType.PAPER,
-          version: "1.20.4",
-          memory_mb: 2048,
-          port: "",
-          rcon_port: "",
-        });
-        setMemoryUnit("GB");
-        setErrors({});
-        onOpenChange(false);
+      onSuccess: (data) => {
+        // Show logs viewer and connect to WebSocket
+        setCreatedServerId(data.id);
+        setServerStatus(data.status);
+        setShowLogs(true);
       },
     });
   };
@@ -133,17 +139,82 @@ export function CreateServerDialog({ open, onOpenChange }: CreateServerDialogPro
     setErrors({});
   };
 
+  const handleClose = () => {
+    disconnect();
+    clearLogs();
+    setShowLogs(false);
+    setCreatedServerId(null);
+    setServerStatus(null);
+    handleReset();
+    onOpenChange(false);
+  };
+
+  // Auto-close when server creation is complete
+  useEffect(() => {
+    if (serverStatus === ServerStatus.STOPPED && showLogs) {
+      // Give user 2 seconds to see the success message
+      const timer = setTimeout(() => {
+        handleClose();
+      }, 2000);
+      return () => clearTimeout(timer);
+    }
+  }, [serverStatus, showLogs]);
+
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={showLogs ? undefined : onOpenChange}>
       <DialogContent className="max-w-2xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>Create New Server</DialogTitle>
+          <DialogTitle>{showLogs ? "Creating Server..." : "Create New Server"}</DialogTitle>
           <DialogDescription>
-            Configure your new Minecraft server. Ports will be automatically assigned if not specified.
+            {showLogs
+              ? "Please wait while we download the Docker image and create your server. This may take several minutes on the first run."
+              : "Configure your new Minecraft server. Ports will be automatically assigned if not specified."}
           </DialogDescription>
         </DialogHeader>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
+        {showLogs ? (
+          /* Show logs viewer during creation */
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {serverStatus === ServerStatus.DOWNLOADING && (
+                  <>
+                    <Loader2 className="size-4 animate-spin text-orange-500" />
+                    <span className="text-sm font-medium">Downloading Docker image...</span>
+                  </>
+                )}
+                {serverStatus === ServerStatus.INITIALIZING && (
+                  <>
+                    <Loader2 className="size-4 animate-spin text-orange-500" />
+                    <span className="text-sm font-medium">Initializing container...</span>
+                  </>
+                )}
+                {serverStatus === ServerStatus.STOPPED && (
+                  <>
+                    <CheckCircle2 className="size-4 text-green-500" />
+                    <span className="text-sm font-medium text-green-600">Server created successfully!</span>
+                  </>
+                )}
+              </div>
+              {connected && <span className="text-xs text-muted-foreground">Connected</span>}
+            </div>
+
+            <ServerLogsViewer logs={logs} />
+
+            <DialogFooter>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleClose}
+                disabled={serverStatus !== ServerStatus.STOPPED}
+              >
+                {serverStatus === ServerStatus.STOPPED ? "Close" : "Creating..."}
+              </Button>
+            </DialogFooter>
+          </div>
+        ) : (
+          /* Show form for configuration */
+          <form onSubmit={handleSubmit} className="space-y-6">
           {/* Basic Information */}
           <div className="space-y-4">
             <h3 className="text-sm font-semibold text-foreground">Basic Information</h3>
@@ -362,6 +433,7 @@ export function CreateServerDialog({ open, onOpenChange }: CreateServerDialogPro
             </Button>
           </DialogFooter>
         </form>
+        )}
       </DialogContent>
     </Dialog>
   );
