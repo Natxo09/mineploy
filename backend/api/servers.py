@@ -25,6 +25,7 @@ from services.docker_service import docker_service
 from services.permission_service import PermissionService
 from services.websocket_service import manager
 from services.rcon_service import rcon_service
+from services.properties_parser import properties_parser
 from core.config import settings
 
 router = APIRouter()
@@ -791,6 +792,105 @@ async def get_server_logs(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve logs: {str(e)}"
+        )
+
+
+@router.post("/{server_id}/sync-properties", response_model=ServerResponse)
+async def sync_server_properties(
+    server_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Sync server configuration from server.properties file.
+
+    Reads the server.properties file from the Docker container and updates
+    the database with the current RCON configuration. Useful when users
+    manually edit the server.properties file.
+
+    Requires MANAGE permission.
+    """
+    # Get server
+    result = await db.execute(select(Server).where(Server.id == server_id))
+    server = result.scalar_one_or_none()
+
+    if not server:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Server with ID {server_id} not found"
+        )
+
+    # Check permissions
+    if not await PermissionService.has_server_permission(
+        current_user, server_id, ServerPermission.MANAGE, db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to manage this server"
+        )
+
+    # Check if server has a container
+    if not server.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Server does not have a container yet"
+        )
+
+    try:
+        # Read server.properties from container
+        properties_content = await docker_service.read_file(
+            server.container_id,
+            "/data/server.properties"
+        )
+
+        if not properties_content:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="server.properties file not found in container. Server might not have started yet."
+            )
+
+        # Parse properties
+        properties = properties_parser.parse(properties_content)
+        rcon_config = properties_parser.get_rcon_config(properties)
+
+        # Validate RCON config
+        is_valid, error_msg = properties_parser.validate_rcon_config(rcon_config)
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail=f"Invalid RCON configuration: {error_msg}"
+            )
+
+        # Check if RCON port conflicts with another server
+        if rcon_config['rcon_port'] != server.rcon_port:
+            result = await db.execute(
+                select(Server).where(
+                    Server.rcon_port == rcon_config['rcon_port'],
+                    Server.id != server_id
+                )
+            )
+            if result.scalar_one_or_none():
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=f"RCON port {rcon_config['rcon_port']} is already in use by another server"
+                )
+
+        # Update server with new RCON config
+        server.rcon_port = rcon_config['rcon_port']
+        server.rcon_password = rcon_config['rcon_password']
+
+        await db.commit()
+        await db.refresh(server)
+
+        return server
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"⚠️  Failed to sync properties for server {server_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to sync properties: {str(e)}"
         )
 
 

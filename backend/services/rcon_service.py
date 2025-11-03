@@ -2,10 +2,10 @@
 RCON service for Minecraft server communication.
 """
 
-from mcrcon import MCRcon, MCRconException
 from typing import Optional, Dict, Any
-import asyncio
 import re
+
+from services.async_rcon import AsyncRconClient, RconError
 
 
 class RconService:
@@ -37,21 +37,10 @@ class RconService:
             Command response from server
 
         Raises:
-            MCRconException: If RCON connection fails
+            RconError: If RCON connection fails
         """
-        # Run blocking RCON call in executor to avoid blocking event loop
-        loop = asyncio.get_event_loop()
-        return await loop.run_in_executor(
-            None, self._execute_command_sync, host, port, password, command, timeout
-        )
-
-    def _execute_command_sync(
-        self, host: str, port: int, password: str, command: str, timeout: int
-    ) -> str:
-        """Synchronous RCON command execution."""
-        with MCRcon(host, password, port=port, timeout=timeout) as mcr:
-            response = mcr.command(command)
-            return response
+        async with AsyncRconClient(host, port, password, timeout=float(timeout)) as client:
+            return await client.send_command(command)
 
     async def get_player_count(
         self, host: str, port: int, password: str
@@ -83,8 +72,11 @@ class RconService:
             # Fallback parsing
             return {"online_players": 0, "max_players": 20}
 
-        except MCRconException as e:
+        except RconError as e:
             print(f"⚠️  Failed to get player count via RCON: {e}")
+            return {"online_players": 0, "max_players": 20}
+        except Exception as e:
+            print(f"⚠️  Unexpected error getting player count: {e}")
             return {"online_players": 0, "max_players": 20}
 
     async def get_online_players(
@@ -116,8 +108,11 @@ class RconService:
 
             return []
 
-        except MCRconException as e:
+        except RconError as e:
             print(f"⚠️  Failed to get online players via RCON: {e}")
+            return []
+        except Exception as e:
+            print(f"⚠️  Unexpected error getting online players: {e}")
             return []
 
     async def get_tps(self, host: str, port: int, password: str) -> Optional[float]:
@@ -147,7 +142,7 @@ class RconService:
 
             return None
 
-        except MCRconException:
+        except (RconError, Exception):
             # Command might not be available on vanilla servers
             return None
 
@@ -168,7 +163,7 @@ class RconService:
         try:
             await self.execute_command(host, port, password, "list", timeout=5)
             return (True, None)
-        except MCRconException as e:
+        except RconError as e:
             return (False, str(e))
         except Exception as e:
             return (False, f"Unexpected error: {str(e)}")
@@ -196,7 +191,7 @@ class RconService:
                 host, port, password, f'say {message}'
             )
             return True
-        except MCRconException as e:
+        except (RconError, Exception) as e:
             print(f"⚠️  Failed to send message via RCON: {e}")
             return False
 
@@ -218,7 +213,7 @@ class RconService:
         try:
             await self.execute_command(host, port, password, "stop")
             return True
-        except MCRconException as e:
+        except (RconError, Exception) as e:
             print(f"⚠️  Failed to stop server via RCON: {e}")
             return False
 

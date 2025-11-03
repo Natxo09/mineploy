@@ -459,6 +459,81 @@ class DockerService:
         except DockerError as e:
             raise DockerError(e.status, {"message": f"Failed to get container logs: {str(e)}"})
 
+    async def exec_command(
+        self,
+        container_id: str,
+        command: list[str],
+    ) -> tuple[int, str]:
+        """
+        Execute a command inside a container.
+
+        Args:
+            container_id: Container ID
+            command: Command to execute as list of strings
+
+        Returns:
+            Tuple of (exit_code, output)
+
+        Raises:
+            DockerError: If command execution fails
+        """
+        await self.connect()
+
+        try:
+            container = self.docker.containers.container(container_id)
+
+            # Create exec instance
+            exec_instance = await container.exec(command)
+
+            # Start exec and get output
+            output = await exec_instance.start(detach=False)
+
+            # Get exit code
+            inspect = await exec_instance.inspect()
+            exit_code = inspect.get('ExitCode', 0)
+
+            # Handle output
+            if isinstance(output, bytes):
+                output = output.decode('utf-8', errors='ignore')
+            elif isinstance(output, list):
+                output = ''.join(output)
+
+            return exit_code, output
+
+        except DockerError as e:
+            raise DockerError(e.status, {"message": f"Failed to execute command: {str(e)}"})
+
+    async def read_file(
+        self,
+        container_id: str,
+        file_path: str,
+    ) -> Optional[str]:
+        """
+        Read a file from a container.
+
+        Args:
+            container_id: Container ID
+            file_path: Path to file inside container
+
+        Returns:
+            File contents as string, or None if file doesn't exist
+
+        Raises:
+            DockerError: If read fails
+        """
+        try:
+            exit_code, output = await self.exec_command(
+                container_id,
+                ['cat', file_path]
+            )
+
+            if exit_code == 0:
+                return output
+            return None
+
+        except DockerError:
+            return None
+
 
 # Global instance
 docker_service = DockerService()
