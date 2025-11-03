@@ -332,15 +332,23 @@ class DockerService:
 
             # Extract relevant stats
             cpu_stats = stats.get("cpu_stats", {})
+            precpu_stats = stats.get("precpu_stats", {})
             memory_stats = stats.get("memory_stats", {})
 
             # Calculate CPU percentage
-            cpu_delta = cpu_stats.get("cpu_usage", {}).get("total_usage", 0)
-            system_delta = cpu_stats.get("system_cpu_usage", 0)
+            # Docker returns cumulative values, so we need to calculate the delta
+            cpu_delta = (
+                cpu_stats.get("cpu_usage", {}).get("total_usage", 0) -
+                precpu_stats.get("cpu_usage", {}).get("total_usage", 0)
+            )
+            system_delta = (
+                cpu_stats.get("system_cpu_usage", 0) -
+                precpu_stats.get("system_cpu_usage", 0)
+            )
             cpu_count = cpu_stats.get("online_cpus", 1)
 
             cpu_percent = 0.0
-            if system_delta > 0:
+            if system_delta > 0 and cpu_delta > 0:
                 cpu_percent = (cpu_delta / system_delta) * cpu_count * 100.0
 
             # Get memory stats

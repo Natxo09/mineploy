@@ -677,7 +677,7 @@ async def get_server_stats(
     }
 
     if server.container_id and server.status == ServerStatus.RUNNING:
-        # Get Docker stats (CPU, RAM)
+        # Get Docker stats (CPU, RAM, uptime)
         try:
             docker_stats = await docker_service.get_container_stats(server.container_id)
             if docker_stats:
@@ -686,6 +686,12 @@ async def get_server_stats(
                     "memory_usage": docker_stats["memory_usage_mb"],
                     "memory_limit": docker_stats["memory_limit_mb"],
                 })
+
+                # Calculate uptime from last_started_at
+                if server.last_started_at:
+                    from datetime import datetime, timezone
+                    uptime_delta = datetime.now(timezone.utc) - server.last_started_at
+                    stats_data["uptime_seconds"] = int(uptime_delta.total_seconds())
         except Exception as e:
             # Docker might not be available, keep default values
             print(f"⚠️  Failed to get Docker stats for server {server_id}: {e}")
