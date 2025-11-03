@@ -70,10 +70,12 @@ async def viewer_manage_permission(test_db: AsyncSession, viewer_user, test_serv
 async def test_create_server_success(client: AsyncClient, admin_token):
     """Test creating a server as admin."""
     with patch('services.docker_service.docker_service.container_exists', new_callable=AsyncMock) as mock_exists, \
-         patch('services.docker_service.docker_service.create_container', new_callable=AsyncMock) as mock_create:
+         patch('services.docker_service.docker_service.create_container', new_callable=AsyncMock) as mock_create, \
+         patch('services.docker_service.docker_service.pull_image_with_progress', new_callable=AsyncMock) as mock_pull:
 
         mock_exists.return_value = False
         mock_create.return_value = ("container_id_123", {"Id": "container_id_123"})
+        mock_pull.return_value = True
 
         response = await client.post(
             "/api/v1/servers",
@@ -101,10 +103,12 @@ async def test_create_server_success(client: AsyncClient, admin_token):
 async def test_create_server_with_custom_ports(client: AsyncClient, admin_token):
     """Test creating a server with custom ports."""
     with patch('services.docker_service.docker_service.container_exists', new_callable=AsyncMock) as mock_exists, \
-         patch('services.docker_service.docker_service.create_container', new_callable=AsyncMock) as mock_create:
+         patch('services.docker_service.docker_service.create_container', new_callable=AsyncMock) as mock_create, \
+         patch('services.docker_service.docker_service.pull_image_with_progress', new_callable=AsyncMock) as mock_pull:
 
         mock_exists.return_value = False
         mock_create.return_value = ("container_id_456", {"Id": "container_id_456"})
+        mock_pull.return_value = True
 
         response = await client.post(
             "/api/v1/servers",

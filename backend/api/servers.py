@@ -24,6 +24,7 @@ from schemas.server import (
 from services.docker_service import docker_service
 from services.permission_service import PermissionService
 from services.websocket_service import manager
+from services.rcon_service import rcon_service
 from core.config import settings
 
 router = APIRouter()
@@ -656,12 +657,12 @@ async def get_server_stats(
             detail="You don't have permission to view this server"
         )
 
-    # Get stats from Docker
+    # Initialize stats data
     stats_data = {
         "server_id": server_id,
         "status": server.status,
-        "online_players": 0,  # TODO: Implement RCON query
-        "max_players": 20,  # TODO: Get from server.properties
+        "online_players": 0,
+        "max_players": 20,
         "cpu_usage": 0.0,
         "memory_usage": 0.0,
         "memory_limit": float(server.memory_mb),
@@ -669,6 +670,7 @@ async def get_server_stats(
     }
 
     if server.container_id and server.status == ServerStatus.RUNNING:
+        # Get Docker stats (CPU, RAM)
         docker_stats = await docker_service.get_container_stats(server.container_id)
         if docker_stats:
             stats_data.update({
@@ -676,6 +678,21 @@ async def get_server_stats(
                 "memory_usage": docker_stats["memory_usage_mb"],
                 "memory_limit": docker_stats["memory_limit_mb"],
             })
+
+        # Get player data via RCON
+        try:
+            player_data = await rcon_service.get_player_count(
+                host="localhost",  # Container is on same host
+                port=server.rcon_port,
+                password=server.rcon_password,
+            )
+            stats_data.update({
+                "online_players": player_data["online_players"],
+                "max_players": player_data["max_players"],
+            })
+        except Exception as e:
+            # RCON might not be ready yet, keep default values
+            print(f"⚠️  Failed to get player count for server {server_id}: {e}")
 
     return ServerStats(**stats_data)
 

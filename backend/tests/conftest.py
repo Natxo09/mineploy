@@ -157,3 +157,27 @@ def viewer_token(viewer_user):
     from core.security import create_access_token
 
     return create_access_token(data={"sub": str(viewer_user.id)})
+
+
+@pytest_asyncio.fixture
+async def test_server(test_db: AsyncSession, admin_user):
+    """Create a test server."""
+    from models.server import Server, ServerType, ServerStatus
+
+    server = Server(
+        name="Test Server",
+        description="A test Minecraft server",
+        server_type=ServerType.VANILLA,
+        version="1.20.1",
+        port=25565,
+        rcon_port=25575,
+        rcon_password="testpassword",
+        memory_mb=2048,
+        container_name="minecraft_test_server",
+        container_id="test_container_id_123",
+        status=ServerStatus.STOPPED,
+    )
+    test_db.add(server)
+    await test_db.commit()
+    await test_db.refresh(server)
+    return server

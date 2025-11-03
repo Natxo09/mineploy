@@ -167,7 +167,7 @@ class DockerService:
             return container_info["Id"], container_info
 
         except DockerError as e:
-            raise DockerError(f"Failed to create container: {str(e)}")
+            raise DockerError(e.status, {"message": f"Failed to create container: {str(e)}"})
 
     async def start_container(self, container_id: str) -> bool:
         """
@@ -189,7 +189,7 @@ class DockerService:
             await container.start()
             return True
         except DockerError as e:
-            raise DockerError(f"Failed to start container: {str(e)}")
+            raise DockerError(e.status, {"message": f"Failed to start container: {str(e)}"})
 
     async def stop_container(self, container_id: str, timeout: int = 30) -> bool:
         """
@@ -212,7 +212,7 @@ class DockerService:
             await container.stop(timeout=timeout)
             return True
         except DockerError as e:
-            raise DockerError(f"Failed to stop container: {str(e)}")
+            raise DockerError(e.status, {"message": f"Failed to stop container: {str(e)}"})
 
     async def restart_container(self, container_id: str, timeout: int = 30) -> bool:
         """
@@ -235,7 +235,7 @@ class DockerService:
             await container.restart(timeout=timeout)
             return True
         except DockerError as e:
-            raise DockerError(f"Failed to restart container: {str(e)}")
+            raise DockerError(e.status, {"message": f"Failed to restart container: {str(e)}"})
 
     async def delete_container(self, container_id: str, force: bool = False) -> bool:
         """
@@ -266,7 +266,7 @@ class DockerService:
             await container.delete(force=force)
             return True
         except DockerError as e:
-            raise DockerError(f"Failed to delete container: {str(e)}")
+            raise DockerError(e.status, {"message": f"Failed to delete container: {str(e)}"})
 
     async def get_container_status(self, container_id: str) -> ServerStatus:
         """
@@ -366,7 +366,15 @@ class DockerService:
         try:
             containers = await self.docker.containers.list(all=True)
             for container in containers:
-                info = await container.show()
+                # containers.list() returns container objects with show() method
+                # but the mock returns dicts, so we need to handle both cases
+                if hasattr(container, 'show'):
+                    # Real container object
+                    info = await container.show()
+                else:
+                    # Mock dict
+                    info = container
+
                 # Docker returns 'Names' (plural) which is a list of names
                 names = info.get("Names", [])
                 if isinstance(names, list):
