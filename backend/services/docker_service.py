@@ -53,7 +53,7 @@ class DockerService:
     async def pull_image_with_progress(
         self,
         image: str = "itzg/minecraft-server:latest",
-        on_progress: Optional[Callable[[dict], None]] = None,
+        on_progress: Optional[Callable] = None,
     ) -> bool:
         """
         Pull a Docker image with progress tracking.
@@ -79,7 +79,7 @@ class DockerService:
                     # Parse the JSON line
                     try:
                         progress_data = json.loads(line)
-                        on_progress(progress_data)
+                        await on_progress(progress_data)
                     except json.JSONDecodeError:
                         pass
 
