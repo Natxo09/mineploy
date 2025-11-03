@@ -33,125 +33,30 @@ Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers
 - 🐳 **Docker-powered**: Each server runs in an isolated container
 - 🎨 **Modern UI**: Built with Next.js and shadcn/ui
 
-## User Permissions System
+## Permissions System
 
-Mineploy implements a dual-layer permission system combining **global roles** with **server-specific permissions** for fine-grained access control.
+Mineploy uses a dual-layer permission system: **global roles** + **server-specific permissions**.
 
 ### Global Roles
 
-Every user has a global role that determines their system-wide capabilities:
+| Role | Capabilities |
+|------|--------------|
+| **ADMIN** | Full access to everything |
+| **MODERATOR** | Manage assigned servers, view all servers (read-only) |
+| **VIEWER** | Only view assigned servers |
 
-| Role | Description | Capabilities |
-|------|-------------|--------------|
-| **ADMIN** | System administrator | Full access to everything: all servers, all users, all settings |
-| **MODERATOR** | Server moderator | Can manage assigned servers, view other servers (read-only) |
-| **VIEWER** | Read-only user | Can only view assigned servers, no modifications |
+### Server Permissions
 
-### Server-Specific Permissions
+| Permission | What it allows |
+|-----------|----------------|
+| **VIEW** | View server status and settings |
+| **CONSOLE** | Execute commands via RCON |
+| **START_STOP** | Start, stop, and restart server |
+| **FILES** | Upload/download/edit files |
+| **BACKUPS** | Create, restore, and delete backups |
+| **MANAGE** | Full control (all above + settings + delete) |
 
-In addition to global roles, users can be granted specific permissions on individual servers. This allows admins to create custom access patterns:
-
-| Permission | Description | Example Use Case |
-|-----------|-------------|------------------|
-| **VIEW** | Read-only access | View server status, logs, and settings |
-| **CONSOLE** | Console access | Execute commands via RCON |
-| **START_STOP** | Power control | Start, stop, and restart the server |
-| **FILES** | File management | Upload/download/edit files (mods, plugins, configs) |
-| **BACKUPS** | Backup management | Create, restore, and delete backups |
-| **MANAGE** | Full server control | All of the above + server settings and deletion |
-
-### Permission Inheritance
-
-- **ADMIN** role: Bypasses all checks, has implicit `MANAGE` permission on all servers
-- **MODERATOR** role: Has implicit `VIEW` permission on all servers
-- **VIEWER** role: Only has access to explicitly assigned servers
-
-### Permission Assignment Examples
-
-**Example 1: Developer with Console Access**
-```
-User: "dev_john"
-Global Role: VIEWER
-Server Permissions:
-  - "survival-server": [CONSOLE, VIEW]
-  - "creative-server": [VIEW]
-```
-John can execute commands on the survival server but only view the creative server.
-
-**Example 2: Backup Manager**
-```
-User: "backup_admin"
-Global Role: MODERATOR
-Server Permissions:
-  - "survival-server": [BACKUPS, FILES, VIEW]
-```
-This user can manage backups and files on the survival server, plus view all other servers (via MODERATOR role).
-
-**Example 3: Full Server Manager**
-```
-User: "server_manager"
-Global Role: MODERATOR
-Server Permissions:
-  - "survival-server": [MANAGE]
-  - "creative-server": [MANAGE]
-```
-Full control over two specific servers, read-only access to others.
-
-### Implementation Details
-
-The permission system is implemented via:
-
-1. **UserServerPermission Model**: Many-to-many relationship table storing user-server-permission mappings
-2. **Permission Checks**: Middleware and decorators validate permissions before allowing actions
-3. **API Endpoints**: Admins can assign/revoke permissions via `/api/v1/users/{id}/permissions`
-
-### Database Schema (Planned)
-
-```sql
-CREATE TABLE user_server_permissions (
-    id INT PRIMARY KEY AUTO_INCREMENT,
-    user_id INT NOT NULL,
-    server_id INT NOT NULL,
-    permissions JSON NOT NULL,  -- Array of permission strings
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
-    UNIQUE KEY unique_user_server (user_id, server_id)
-);
-```
-
-**Example JSON:**
-```json
-["VIEW", "CONSOLE", "START_STOP"]
-```
-
-### API Endpoints (Planned)
-
-**Assign permissions to user on a server:**
-```bash
-POST /api/v1/users/{user_id}/permissions
-{
-  "server_id": 1,
-  "permissions": ["VIEW", "CONSOLE", "START_STOP"]
-}
-```
-
-**Get user permissions on all servers:**
-```bash
-GET /api/v1/users/{user_id}/permissions
-```
-
-**Remove user access from a server:**
-```bash
-DELETE /api/v1/users/{user_id}/permissions/{server_id}
-```
-
-**Check if user can perform action:**
-```bash
-GET /api/v1/users/me/permissions/{server_id}
-# Returns: { "permissions": ["VIEW", "CONSOLE"], "effective_role": "MODERATOR" }
-```
+Admins can assign permissions to users on specific servers via the API.
 
 ## Tech Stack
 
@@ -180,7 +85,7 @@ GET /api/v1/users/me/permissions/{server_id}
 
 1. **Clone the repository**
 ```bash
-git clone https://github.com/yourusername/mineploy.git
+git clone https://github.com/Natxo09/mineploy.git
 cd mineploy
 ```
 
@@ -203,7 +108,7 @@ The services will be available at:
 
 1. **Clone and setup**
 ```bash
-git clone https://github.com/yourusername/mineploy.git
+git clone https://github.com/Natxo09/mineploy.git
 cd mineploy/backend
 python3 -m venv venv
 source venv/bin/activate
