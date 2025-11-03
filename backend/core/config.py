@@ -27,20 +27,20 @@ class Settings(BaseSettings):
     api_port: int = Field(default=8000, description="API port")
     api_prefix: str = Field(default="/api/v1", description="API prefix")
 
-    # CORS
-    cors_origins: list[str] = Field(
-        default=["http://localhost:3000", "http://127.0.0.1:3000"],
-        description="Allowed CORS origins"
+    # CORS (stored as string, parsed to list)
+    cors_origins: str | list[str] = Field(
+        default="http://localhost:3000,http://127.0.0.1:3000",
+        description="Allowed CORS origins (comma-separated)"
     )
 
-    @field_validator("cors_origins", mode="before")
+    @field_validator("cors_origins", mode="after")
     @classmethod
     def parse_cors_origins(cls, v):
-        """Parse CORS_ORIGINS from comma-separated string or list."""
+        """Parse CORS_ORIGINS from comma-separated string to list."""
         if isinstance(v, str):
-            # If empty string, return None to use default
+            # If empty string, use defaults
             if not v or v.strip() == "":
-                return None
+                return ["http://localhost:3000", "http://127.0.0.1:3000"]
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
