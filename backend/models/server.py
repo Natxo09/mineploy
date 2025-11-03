@@ -4,7 +4,7 @@ Minecraft Server model.
 
 from datetime import datetime
 from enum import Enum as PyEnum
-from sqlalchemy import String, Integer, Boolean, DateTime, Enum, Text
+from sqlalchemy import String, Integer, Boolean, DateTime, Enum, Text, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import Base
@@ -64,13 +64,13 @@ class Server(Base):
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        server_default=func.now(),
         nullable=False
     )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        server_default=func.now(),
+        onupdate=func.now(),
         nullable=False
     )
     last_started_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)

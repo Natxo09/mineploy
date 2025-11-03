@@ -21,11 +21,12 @@ mcrcon==0.7.0
 # Authentication & Security
 python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4
-bcrypt==5.0.0
+bcrypt==4.2.1
 
 # Validation & Settings
 pydantic==2.12.3
 pydantic-settings==2.11.0
+email-validator==2.2.0
 
 # WebSockets
 python-socketio==5.14.3

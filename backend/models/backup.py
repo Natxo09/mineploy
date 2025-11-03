@@ -3,7 +3,7 @@ Backup model for server backups.
 """
 
 from datetime import datetime
-from sqlalchemy import String, Integer, BigInteger, DateTime, ForeignKey, Boolean
+from sqlalchemy import String, Integer, BigInteger, DateTime, ForeignKey, Boolean, func
 from sqlalchemy.orm import Mapped, mapped_column
 
 from core.database import Base
@@ -32,7 +32,7 @@ class Backup(Base):
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
         DateTime,
-        default=datetime.utcnow,
+        server_default=func.now(),
         nullable=False
     )
 
