@@ -8,7 +8,6 @@ from aiodocker.exceptions import DockerError
 from typing import Optional, Dict, Any, Callable
 import secrets
 import string
-import json
 
 from core.config import settings
 from models.server import ServerType, ServerStatus
@@ -74,21 +73,18 @@ class DockerService:
             print(f"📦 Pulling Docker image: {image}")
 
             # Pull image and stream progress
+            # Note: aiodocker returns dictionaries, not JSON strings
             async for line in self.docker.images.pull(image, stream=True):
                 if on_progress:
-                    # Parse the JSON line
-                    try:
-                        progress_data = json.loads(line)
-                        await on_progress(progress_data)
-                    except json.JSONDecodeError:
-                        pass
+                    # line is already a dictionary, no need to parse
+                    await on_progress(line)
 
             print(f"✅ Successfully pulled image: {image}")
             return True
 
         except DockerError as e:
             print(f"❌ Failed to pull image {image}: {str(e)}")
-            raise DockerError(f"Failed to pull image: {str(e)}", {"message": str(e)})
+            raise
 
     async def create_container(
         self,
@@ -171,7 +167,7 @@ class DockerService:
             return container_info["Id"], container_info
 
         except DockerError as e:
-            raise DockerError(f"Failed to create container: {str(e)}", {"message": str(e)})
+            raise DockerError(f"Failed to create container: {str(e)}")
 
     async def start_container(self, container_id: str) -> bool:
         """
@@ -193,7 +189,7 @@ class DockerService:
             await container.start()
             return True
         except DockerError as e:
-            raise DockerError(f"Failed to start container: {str(e)}", {"message": str(e)})
+            raise DockerError(f"Failed to start container: {str(e)}")
 
     async def stop_container(self, container_id: str, timeout: int = 30) -> bool:
         """
@@ -216,7 +212,7 @@ class DockerService:
             await container.stop(timeout=timeout)
             return True
         except DockerError as e:
-            raise DockerError(f"Failed to stop container: {str(e)}", {"message": str(e)})
+            raise DockerError(f"Failed to stop container: {str(e)}")
 
     async def restart_container(self, container_id: str, timeout: int = 30) -> bool:
         """
@@ -239,7 +235,7 @@ class DockerService:
             await container.restart(timeout=timeout)
             return True
         except DockerError as e:
-            raise DockerError(f"Failed to restart container: {str(e)}", {"message": str(e)})
+            raise DockerError(f"Failed to restart container: {str(e)}")
 
     async def delete_container(self, container_id: str, force: bool = False) -> bool:
         """
@@ -270,7 +266,7 @@ class DockerService:
             await container.delete(force=force)
             return True
         except DockerError as e:
-            raise DockerError(f"Failed to delete container: {str(e)}", {"message": str(e)})
+            raise DockerError(f"Failed to delete container: {str(e)}")
 
     async def get_container_status(self, container_id: str) -> ServerStatus:
         """
@@ -371,10 +367,18 @@ class DockerService:
             containers = await self.docker.containers.list(all=True)
             for container in containers:
                 info = await container.show()
-                names = info.get("Name", "")
-                # Docker may include '/' prefix in name
-                if names.lstrip("/") == container_name:
-                    return True
+                # Docker returns 'Names' (plural) which is a list of names
+                names = info.get("Names", [])
+                if isinstance(names, list):
+                    # Check if our container name (with or without /) is in the list
+                    for name in names:
+                        if name.lstrip("/") == container_name:
+                            return True
+                else:
+                    # Fallback for 'Name' (singular) field
+                    name = info.get("Name", "")
+                    if name.lstrip("/") == container_name:
+                        return True
             return False
         except DockerError:
             return False

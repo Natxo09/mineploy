@@ -177,21 +177,34 @@ async def create_server(
 
         async def on_pull_progress(progress_data: dict):
             """Callback to emit pull progress via WebSocket."""
-            # Extract relevant progress info
-            status_msg = progress_data.get("status", "")
-            progress_detail = progress_data.get("progressDetail", {})
+            try:
+                # Extract relevant progress info
+                status_msg = progress_data.get("status", "")
+                progress_detail = progress_data.get("progressDetail", {})
 
-            # Build log message
-            log_msg = status_msg
-            if progress_detail:
-                current = progress_detail.get("current", 0)
-                total = progress_detail.get("total", 0)
-                if total > 0:
-                    percentage = (current / total) * 100
-                    log_msg = f"{status_msg} {percentage:.1f}%"
+                # Skip empty status messages
+                if not status_msg:
+                    return
 
-            # Emit log to WebSocket
-            await manager.broadcast_container_logs(new_server.id, log_msg)
+                # Build log message
+                log_msg = status_msg
+                if progress_detail and isinstance(progress_detail, dict):
+                    current = progress_detail.get("current", 0)
+                    total = progress_detail.get("total", 0)
+                    if total > 0:
+                        percentage = (current / total) * 100
+                        log_msg = f"{status_msg} {percentage:.1f}%"
+
+                # Add layer ID if available for better context
+                layer_id = progress_data.get("id")
+                if layer_id:
+                    log_msg = f"[{layer_id}] {log_msg}"
+
+                # Emit log to WebSocket
+                await manager.broadcast_container_logs(new_server.id, log_msg)
+            except Exception as e:
+                # Log error but don't break the pull process
+                print(f"⚠️  Error processing pull progress: {e}")
 
         # Pull the image
         await docker_service.pull_image_with_progress(
