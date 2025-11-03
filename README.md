@@ -21,7 +21,8 @@ Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers
 - ✅ Basic dashboard page
 - ✅ Server management backend (CRUD, start/stop/restart, stats)
 - ✅ Docker service integration (container management)
-- 📝 Next: Server management UI
+- ✅ Server management UI (list, cards, create/delete with real-time WebSocket updates)
+- 📝 Next: Console & RCON integration
 
 ## Features (Planned)
 
@@ -400,6 +401,9 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] Container stats retrieval (CPU, memory usage)
 - [x] Port management (auto-assignment within configured ranges)
 - [x] Server permissions integration (VIEW, START_STOP, MANAGE)
+- [x] WebSocket support for real-time server updates (status, logs)
+- [x] Real-time Docker image pull progress tracking
+- [x] Server states (DOWNLOADING, INITIALIZING, RUNNING, STOPPED, etc.)
 - [x] Tests for server management (24 tests)
 - [x] Tests for Docker service (17 tests)
 - [x] Full test coverage (87/87 tests passing, 73% coverage)
@@ -439,12 +443,19 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] Setup wizard page (initial admin creation)
 - [x] Route protection (middleware + AuthGuard)
 - [x] Dashboard page (basic layout)
-- [ ] Server list & cards
-- [ ] Server detail page
-- [ ] Console terminal (xterm.js)
+- [x] Server list & cards (table view with status indicators)
+- [x] Create server dialog with real-time progress (WebSocket integration)
+- [x] Delete server functionality
+- [x] WebSocket hook for real-time updates
+- [x] Server logs viewer component
+- [x] Server state management (DOWNLOADING, INITIALIZING, RUNNING, STOPPED)
+- [ ] Start/stop/restart server buttons
+- [ ] Server detail page with stats
+- [ ] Console terminal (xterm.js + RCON)
 - [ ] File explorer UI
 - [ ] Backup management UI
-- [ ] User management (admin only)
+- [ ] User management UI (admin only)
+- [ ] Permissions management UI (admin only)
 - [ ] Settings page
 - [ ] Refresh token mechanism
 
