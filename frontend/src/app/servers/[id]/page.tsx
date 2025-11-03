@@ -24,6 +24,7 @@ import type { ServerStatus } from "@/types";
 import { ServerConsole } from "@/components/console/server-console";
 import { ServerStatsCharts } from "@/components/servers/server-stats-charts";
 import { ServerLogs } from "@/components/servers/server-logs";
+import { ServerSettings } from "@/components/servers/server-settings";
 
 const statusConfig: Record<
   ServerStatus,
@@ -240,11 +241,10 @@ export default function ServerDetailPage() {
         </TabsContent>
 
         <TabsContent value="settings" className="space-y-4">
-          <div className="rounded-lg border bg-card p-4">
-            <p className="text-sm text-muted-foreground text-center py-8">
-              Server settings will be implemented here
-            </p>
-          </div>
+          <ServerSettings
+            serverId={serverId}
+            isRunning={server.status === "running"}
+          />
         </TabsContent>
       </Tabs>
     </div>
