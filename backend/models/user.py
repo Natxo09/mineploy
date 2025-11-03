@@ -5,9 +5,13 @@ User model for authentication and authorization.
 from datetime import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import String, Boolean, DateTime, Enum, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
 
 from core.database import Base
+
+if TYPE_CHECKING:
+    from models.user_server_permission import UserServerPermission
 
 
 class UserRole(str, PyEnum):
@@ -42,6 +46,13 @@ class User(Base):
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False
+    )
+
+    # Relationships
+    server_permissions: Mapped[list["UserServerPermission"]] = relationship(
+        "UserServerPermission",
+        back_populates="user",
+        cascade="all, delete-orphan"
     )
 
     def __repr__(self) -> str:

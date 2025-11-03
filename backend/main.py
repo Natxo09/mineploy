@@ -120,13 +120,15 @@ async def app_info():
 
 
 # Import and include routers
-from api import setup
+from api import setup, auth, users, permissions
 
-app.include_router(setup.router, prefix=f"{settings.api_prefix}/setup", tags=["Setup"])
+app.include_router(setup.router, prefix=f"{settings.api_prefix}/setup")
+app.include_router(auth.router, prefix=f"{settings.api_prefix}")
+app.include_router(users.router, prefix=f"{settings.api_prefix}")
+app.include_router(permissions.router, prefix=f"{settings.api_prefix}")
 
 # Additional routers (will be created later)
-# from api import auth, servers, console, files, backups
-# app.include_router(auth.router, prefix=f"{settings.api_prefix}/auth", tags=["Auth"])
+# from api import servers, console, files, backups
 # app.include_router(servers.router, prefix=f"{settings.api_prefix}/servers", tags=["Servers"])
 # app.include_router(console.router, prefix=f"{settings.api_prefix}/console", tags=["Console"])
 # app.include_router(files.router, prefix=f"{settings.api_prefix}/files", tags=["Files"])

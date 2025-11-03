@@ -5,9 +5,13 @@ Minecraft Server model.
 from datetime import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import String, Integer, Boolean, DateTime, Enum, Text, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
+from typing import TYPE_CHECKING
 
 from core.database import Base
+
+if TYPE_CHECKING:
+    from models.user_server_permission import UserServerPermission
 
 
 class ServerType(str, PyEnum):
@@ -75,6 +79,13 @@ class Server(Base):
     )
     last_started_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
     last_stopped_at: Mapped[datetime] = mapped_column(DateTime, nullable=True)
+
+    # Relationships
+    user_permissions: Mapped[list["UserServerPermission"]] = relationship(
+        "UserServerPermission",
+        back_populates="server",
+        cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Server(id={self.id}, name={self.name}, status={self.status})>"

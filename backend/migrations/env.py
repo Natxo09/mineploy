@@ -16,7 +16,7 @@ from core.config import settings
 from core.database import Base
 
 # Import all models to ensure they're registered
-from models import user, server, backup  # noqa: F401
+from models import user, server, backup, user_server_permission  # noqa: F401
 
 # this is the Alembic Config object, which provides
 # access to the values within the .ini file in use.

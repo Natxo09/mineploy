@@ -2,10 +2,10 @@
 
 > Open-source Minecraft server management panel
 
-**Status:** 🚧 Under active development | **Phase 1 Complete** ✅
+**Status:** 🚧 Under active development | **Phase 2 Complete** ✅
 
-[![Tests](https://img.shields.io/badge/tests-15%2F15%20passing-brightgreen)]()
-[![Coverage](https://img.shields.io/badge/coverage-73%25-yellow)]()
+[![Tests](https://img.shields.io/badge/tests-42%2F42%20passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-72%25-yellow)]()
 
 Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers with a clean web interface.
 
@@ -13,8 +13,11 @@ Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers
 - ✅ Backend API deployed and running
 - ✅ Database migrations applied
 - ✅ Setup wizard ready
+- ✅ Authentication system complete
+- ✅ User management (CRUD)
+- ✅ Server-specific permissions system
 - ⏸️ Frontend pending
-- 📝 Next: User authentication system
+- 📝 Next: Frontend login & dashboard
 
 ## Features (Planned)
 
@@ -25,6 +28,126 @@ Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers
 - 👥 **Multi-user**: Role-based access control (Admin, Moderator, Viewer)
 - 🐳 **Docker-powered**: Each server runs in an isolated container
 - 🎨 **Modern UI**: Built with Next.js and shadcn/ui
+
+## User Permissions System
+
+Mineploy implements a dual-layer permission system combining **global roles** with **server-specific permissions** for fine-grained access control.
+
+### Global Roles
+
+Every user has a global role that determines their system-wide capabilities:
+
+| Role | Description | Capabilities |
+|------|-------------|--------------|
+| **ADMIN** | System administrator | Full access to everything: all servers, all users, all settings |
+| **MODERATOR** | Server moderator | Can manage assigned servers, view other servers (read-only) |
+| **VIEWER** | Read-only user | Can only view assigned servers, no modifications |
+
+### Server-Specific Permissions
+
+In addition to global roles, users can be granted specific permissions on individual servers. This allows admins to create custom access patterns:
+
+| Permission | Description | Example Use Case |
+|-----------|-------------|------------------|
+| **VIEW** | Read-only access | View server status, logs, and settings |
+| **CONSOLE** | Console access | Execute commands via RCON |
+| **START_STOP** | Power control | Start, stop, and restart the server |
+| **FILES** | File management | Upload/download/edit files (mods, plugins, configs) |
+| **BACKUPS** | Backup management | Create, restore, and delete backups |
+| **MANAGE** | Full server control | All of the above + server settings and deletion |
+
+### Permission Inheritance
+
+- **ADMIN** role: Bypasses all checks, has implicit `MANAGE` permission on all servers
+- **MODERATOR** role: Has implicit `VIEW` permission on all servers
+- **VIEWER** role: Only has access to explicitly assigned servers
+
+### Permission Assignment Examples
+
+**Example 1: Developer with Console Access**
+```
+User: "dev_john"
+Global Role: VIEWER
+Server Permissions:
+  - "survival-server": [CONSOLE, VIEW]
+  - "creative-server": [VIEW]
+```
+John can execute commands on the survival server but only view the creative server.
+
+**Example 2: Backup Manager**
+```
+User: "backup_admin"
+Global Role: MODERATOR
+Server Permissions:
+  - "survival-server": [BACKUPS, FILES, VIEW]
+```
+This user can manage backups and files on the survival server, plus view all other servers (via MODERATOR role).
+
+**Example 3: Full Server Manager**
+```
+User: "server_manager"
+Global Role: MODERATOR
+Server Permissions:
+  - "survival-server": [MANAGE]
+  - "creative-server": [MANAGE]
+```
+Full control over two specific servers, read-only access to others.
+
+### Implementation Details
+
+The permission system is implemented via:
+
+1. **UserServerPermission Model**: Many-to-many relationship table storing user-server-permission mappings
+2. **Permission Checks**: Middleware and decorators validate permissions before allowing actions
+3. **API Endpoints**: Admins can assign/revoke permissions via `/api/v1/users/{id}/permissions`
+
+### Database Schema (Planned)
+
+```sql
+CREATE TABLE user_server_permissions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    server_id INT NOT NULL,
+    permissions JSON NOT NULL,  -- Array of permission strings
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (server_id) REFERENCES servers(id) ON DELETE CASCADE,
+    UNIQUE KEY unique_user_server (user_id, server_id)
+);
+```
+
+**Example JSON:**
+```json
+["VIEW", "CONSOLE", "START_STOP"]
+```
+
+### API Endpoints (Planned)
+
+**Assign permissions to user on a server:**
+```bash
+POST /api/v1/users/{user_id}/permissions
+{
+  "server_id": 1,
+  "permissions": ["VIEW", "CONSOLE", "START_STOP"]
+}
+```
+
+**Get user permissions on all servers:**
+```bash
+GET /api/v1/users/{user_id}/permissions
+```
+
+**Remove user access from a server:**
+```bash
+DELETE /api/v1/users/{user_id}/permissions/{server_id}
+```
+
+**Check if user can perform action:**
+```bash
+GET /api/v1/users/me/permissions/{server_id}
+# Returns: { "permissions": ["VIEW", "CONSOLE"], "effective_role": "MODERATOR" }
+```
 
 ## Tech Stack
 
@@ -254,17 +377,35 @@ Key environment variables (see `.env.example` for full list):
 
 ## API Endpoints
 
-### Current Endpoints
-
+### Health & Info
 - `GET /` - Redirect to API docs
 - `GET /api/v1/health` - Health check
 - `GET /api/v1/info` - Application info
+
+### Setup
 - `GET /api/v1/setup/status` - Check setup status
 - `POST /api/v1/setup/initialize` - Create first admin user
 
-### Coming Soon
+### Authentication
+- `POST /api/v1/auth/login` - Login and get JWT token
+- `POST /api/v1/auth/change-password` - Change own password
+- `GET /api/v1/auth/me` - Get current user info
 
-- Authentication (`/api/v1/auth/*`)
+### User Management (Admin only)
+- `GET /api/v1/users` - List all users
+- `GET /api/v1/users/me` - Get current user
+- `GET /api/v1/users/{id}` - Get user by ID
+- `POST /api/v1/users` - Create new user
+- `PUT /api/v1/users/{id}` - Update user
+- `DELETE /api/v1/users/{id}` - Delete user
+
+### Permissions (Admin only)
+- `POST /api/v1/permissions/users/{user_id}` - Grant permissions on a server
+- `GET /api/v1/permissions/users/{user_id}` - Get all user permissions
+- `GET /api/v1/permissions/users/{user_id}/servers/{server_id}` - Check permissions
+- `DELETE /api/v1/permissions/users/{user_id}/servers/{server_id}` - Revoke permissions
+
+### Coming Soon
 - Server management (`/api/v1/servers/*`)
 - Console & RCON (`/api/v1/console/*`)
 - File management (`/api/v1/files/*`)
@@ -291,15 +432,17 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] Production deployment (Dokploy)
 - [x] CI/CD ready structure
 
-### **Phase 2 - Authentication** 🚧 NEXT
-- [ ] Login endpoint (POST `/api/v1/auth/login`)
-- [ ] JWT token generation and validation
-- [ ] Protected route middleware
-- [ ] User CRUD endpoints
-- [ ] Change password endpoint
-- [ ] Role-based permission system
-- [ ] Refresh token mechanism
-- [ ] Tests for authentication
+### **Phase 2 - Authentication** ✅ COMPLETED
+- [x] Login endpoint (POST `/api/v1/auth/login`)
+- [x] JWT token generation and validation
+- [x] Protected route middleware (Bearer token)
+- [x] User CRUD endpoints (admin only)
+- [x] Change password endpoint
+- [x] Server-specific permission system (models, service, endpoints)
+- [x] Permission management API
+- [x] Tests for authentication (42/42 tests passing)
+- [ ] Refresh token mechanism (deferred to Phase 7)
+- [ ] Basic frontend login page (moved to Phase 7)
 
 ### **Phase 3 - Server Management** 📋 Planned
 - [ ] Create server endpoint
