@@ -15,7 +15,7 @@ class ServerBase(BaseModel):
     description: Optional[str] = Field(None, description="Server description")
     server_type: ServerType = Field(..., description="Minecraft server type")
     version: str = Field(..., min_length=1, max_length=20, description="Minecraft version")
-    memory_mb: int = Field(2048, ge=512, le=32768, description="Memory allocation in MB")
+    memory_mb: int = Field(2048, ge=512, le=131072, description="Memory allocation in MB (max 128GB)")
 
 
 class ServerCreate(ServerBase):
@@ -47,7 +47,7 @@ class ServerUpdate(BaseModel):
 
     name: Optional[str] = Field(None, min_length=1, max_length=100)
     description: Optional[str] = None
-    memory_mb: Optional[int] = Field(None, ge=512, le=32768)
+    memory_mb: Optional[int] = Field(None, ge=512, le=131072)
 
 
 class ServerResponse(ServerBase):
