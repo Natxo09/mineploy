@@ -2,9 +2,19 @@
 
 > Open-source Minecraft server management panel
 
-**Status:** 🚧 Under active development
+**Status:** 🚧 Under active development | **Phase 1 Complete** ✅
+
+[![Tests](https://img.shields.io/badge/tests-15%2F15%20passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-73%25-yellow)]()
 
 Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers with a clean web interface.
+
+**Current Status:**
+- ✅ Backend API deployed and running
+- ✅ Database migrations applied
+- ✅ Setup wizard ready
+- ⏸️ Frontend pending
+- 📝 Next: User authentication system
 
 ## Features (Planned)
 
@@ -268,42 +278,86 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 
 ## Roadmap
 
-**Phase 1 - Foundation** ✅ (In Progress)
-- [x] Project structure
-- [x] Database models
-- [x] Core configuration
-- [x] Health check endpoints
-- [x] Setup wizard
-- [x] Docker setup
-- [x] Testing infrastructure
+### **Phase 1 - Foundation** ✅ COMPLETED
+- [x] Project structure (backend, Docker, docs)
+- [x] Database models (User, Server, Backup)
+- [x] Core configuration (config.py, database.py, security.py)
+- [x] Health check & info endpoints
+- [x] Setup wizard endpoint
+- [x] Docker & Docker Compose setup
+- [x] Testing infrastructure (pytest, 15/15 tests passing, 73% coverage)
+- [x] Alembic migrations setup
+- [x] MySQL integration
+- [x] Production deployment (Dokploy)
+- [x] CI/CD ready structure
 
-**Phase 2 - Authentication**
-- [ ] User authentication (JWT)
-- [ ] User management
-- [ ] Role-based permissions
+### **Phase 2 - Authentication** 🚧 NEXT
+- [ ] Login endpoint (POST `/api/v1/auth/login`)
+- [ ] JWT token generation and validation
+- [ ] Protected route middleware
+- [ ] User CRUD endpoints
+- [ ] Change password endpoint
+- [ ] Role-based permission system
+- [ ] Refresh token mechanism
+- [ ] Tests for authentication
 
-**Phase 3 - Server Management**
-- [ ] Create/start/stop/delete servers
-- [ ] Docker container management
-- [ ] RCON integration
-- [ ] Console WebSocket
+### **Phase 3 - Server Management** 📋 Planned
+- [ ] Create server endpoint
+- [ ] Start/stop/restart server
+- [ ] Delete server
+- [ ] Get server status & stats
+- [ ] List all servers
+- [ ] Docker container integration
+- [ ] RCON connection
+- [ ] Server logs endpoint
+- [ ] Tests for server management
 
-**Phase 4 - File Management**
+### **Phase 4 - Console & RCON** 📋 Planned
+- [ ] WebSocket connection for console
+- [ ] RCON command execution
+- [ ] Real-time log streaming
+- [ ] Command history
+- [ ] Tests for console
+
+### **Phase 5 - File Management** 📋 Planned
 - [ ] File explorer API
-- [ ] Upload/download files
-- [ ] Edit configuration files
+- [ ] Upload files endpoint
+- [ ] Download files endpoint
+- [ ] Edit text files (server.properties, etc.)
+- [ ] Delete files
+- [ ] Create directories
+- [ ] Tests for file operations
 
-**Phase 5 - Backups**
+### **Phase 6 - Backups** 📋 Planned
 - [ ] Manual backup creation
-- [ ] Scheduled backups
-- [ ] Backup restoration
+- [ ] List backups
+- [ ] Download backup
+- [ ] Restore backup
+- [ ] Delete backup
+- [ ] Scheduled backups (APScheduler)
+- [ ] Backup retention policy
+- [ ] Tests for backups
 
-**Phase 6 - Frontend**
-- [ ] Next.js app
-- [ ] Dashboard
-- [ ] Server management UI
-- [ ] Terminal component
+### **Phase 7 - Frontend** 📋 Planned
+- [ ] Next.js app setup
+- [ ] Authentication flow (login/logout)
+- [ ] Dashboard page
+- [ ] Server list & cards
+- [ ] Server detail page
+- [ ] Console terminal (xterm.js)
 - [ ] File explorer UI
+- [ ] Backup management UI
+- [ ] User management (admin only)
+- [ ] Settings page
+
+### **Phase 8 - Production Ready** 📋 Future
+- [ ] Monitoring & logging (optional)
+- [ ] Rate limiting
+- [ ] API documentation (OpenAPI/Swagger)
+- [ ] Contributing guidelines
+- [ ] End-to-end tests
+- [ ] Performance optimization
+- [ ] Security audit
 
 ---
 
