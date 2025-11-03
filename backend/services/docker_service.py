@@ -329,9 +329,10 @@ class DockerService:
         try:
             containers = await self.docker.containers.list(all=True)
             for container in containers:
-                names = container.get("Names", [])
-                # Docker adds '/' prefix to names
-                if f"/{container_name}" in names or container_name in names:
+                info = await container.show()
+                names = info.get("Name", "")
+                # Docker may include '/' prefix in name
+                if names.lstrip("/") == container_name:
                     return True
             return False
         except DockerError:
