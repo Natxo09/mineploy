@@ -2,10 +2,10 @@
 
 > Open-source Minecraft server management panel
 
-**Status:** 🚧 Under active development | **Phase 7 In Progress** 🚧
+**Status:** 🚧 Under active development | **Phase 8 In Progress** 🚧
 
-[![Tests](https://img.shields.io/badge/tests-114%2F114%20passing-brightgreen)]()
-[![Coverage](https://img.shields.io/badge/coverage-72%25-yellow)]()
+[![Tests](https://img.shields.io/badge/tests-129%2F129%20passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-65%25-yellow)]()
 
 Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers with a clean web interface.
 
@@ -23,7 +23,8 @@ Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers
 - ✅ Docker service integration (container management)
 - ✅ Server management UI (list, cards, create/delete with real-time WebSocket updates)
 - ✅ Console & RCON API (command execution, player list)
-- ✅ Comprehensive test suite (114 tests, 72% coverage)
+- ✅ Server properties management (server.properties configuration via API)
+- ✅ Comprehensive test suite (129 tests, 65% coverage)
 
 ## Features (Planned)
 
@@ -160,7 +161,7 @@ curl -X POST http://localhost:8000/api/v1/setup/initialize \
 
 ### Running Tests
 
-The backend includes a comprehensive test suite with **114 tests** covering all functionality:
+The backend includes a comprehensive test suite with **129 tests** covering all functionality:
 
 **Quick test run:**
 ```bash
@@ -188,16 +189,17 @@ xdg-open htmlcov/index.html  # Linux
 
 **Test Structure:**
 - ✅ Authentication tests (14 tests)
-- ✅ User management tests (11 tests)
+- ✅ User management tests (17 tests)
 - ✅ Server management tests (24 tests)
 - ✅ Docker service tests (17 tests)
 - ✅ Console/RCON tests (11 tests)
+- ✅ RCON service tests (16 tests)
+- ✅ Server properties tests (15 tests) ✨ NEW
 - ✅ Security tests (9 tests)
 - ✅ Configuration tests (4 tests)
 - ✅ Health check tests (2 tests)
-- ✅ Other tests (22 tests)
 
-**Current Status:** 114/114 tests passing ✅ | Coverage: 72%
+**Current Status:** 129/129 tests passing ✅ | Coverage: 65%
 
 ### Code Quality
 
@@ -258,29 +260,33 @@ mineploy/
 │   │   ├── user.py
 │   │   ├── server.py
 │   │   ├── permission.py
+│   │   ├── properties.py       # ✨ NEW (server.properties config)
 │   │   └── setup.py
 │   ├── api/                    # API endpoints
 │   │   ├── setup.py
 │   │   ├── auth.py
 │   │   ├── users.py
 │   │   ├── permissions.py
-│   │   ├── servers.py
-│   │   └── console.py          # ✅ NEW
+│   │   ├── servers.py          # (includes properties endpoints)
+│   │   └── console.py
 │   ├── services/               # Business logic
 │   │   ├── permission_service.py
 │   │   ├── docker_service.py
-│   │   ├── rcon_service.py     # ✅ NEW
-│   │   └── websocket_service.py  # ✅ NEW
-│   ├── tests/                  # Tests (114 tests - 100% passing)
+│   │   ├── rcon_service.py
+│   │   ├── websocket_service.py
+│   │   ├── properties_parser.py
+│   │   └── server_properties_service.py  # ✨ NEW
+│   ├── tests/                  # Tests (129 tests - 100% passing)
 │   │   ├── test_auth.py        # Authentication tests (14 tests)
-│   │   ├── test_users.py       # User management tests (11 tests)
+│   │   ├── test_users.py       # User management tests (17 tests)
 │   │   ├── test_security.py    # Security tests (9 tests)
 │   │   ├── test_config.py      # Configuration tests (4 tests)
 │   │   ├── test_health.py      # Health check tests (2 tests)
 │   │   ├── test_servers.py     # Server management tests (24 tests)
 │   │   ├── test_docker_service.py  # Docker service tests (17 tests)
 │   │   ├── test_console.py     # Console/RCON tests (11 tests)
-│   │   ├── test_rcon_service.py    # RCON service tests (15 tests)
+│   │   ├── test_rcon_service.py    # RCON service tests (16 tests)
+│   │   ├── test_server_properties.py  # ✨ NEW (15 tests)
 │   │   └── conftest.py         # Test fixtures and configuration
 │   └── migrations/             # Alembic migrations
 ├── frontend/                   # Next.js app
@@ -379,9 +385,11 @@ Key environment variables (see `.env.example` for full list):
 - `POST /api/v1/servers/{id}/stop` - Stop server (START_STOP permission)
 - `POST /api/v1/servers/{id}/restart` - Restart server (START_STOP permission)
 - `GET /api/v1/servers/{id}/stats` - Get real-time server stats (VIEW permission)
+- `GET /api/v1/servers/{id}/properties` - Get server.properties config (VIEW permission) ✨ NEW
+- `PATCH /api/v1/servers/{id}/properties` - Update server.properties config (MANAGE permission) ✨ NEW
 - `WS /api/v1/servers/ws/{id}` - WebSocket for real-time updates
 
-### Console & RCON ✅ NEW
+### Console & RCON
 - `POST /api/v1/console/{server_id}/command` - Execute RCON command (CONSOLE permission)
 - `GET /api/v1/console/{server_id}/players` - Get online players list (VIEW permission)
 
@@ -409,7 +417,7 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] MySQL integration
 - [x] Production deployment (Dokploy)
 - [x] CI/CD ready structure
-- [x] Comprehensive test suite (114 tests, 72% coverage)
+- [x] Comprehensive test suite (129 tests, 65% coverage)
 
 ### **Phase 2 - Authentication** ✅ COMPLETED
 - [x] Login endpoint (POST `/api/v1/auth/login`)
@@ -420,7 +428,7 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] Server-specific permission system (models, service, endpoints)
 - [x] Permission management API
 - [x] Tests for authentication (42/42 tests passing)
-- [ ] Refresh token mechanism (deferred to Phase 7)
+- [ ] Refresh token mechanism (deferred to Phase 8)
 
 ### **Phase 3 - Server Management** ✅ COMPLETED
 - [x] Create server endpoint (POST `/api/v1/servers`)
@@ -438,7 +446,7 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] Server states (DOWNLOADING, INITIALIZING, RUNNING, STOPPED, etc.)
 - [x] Tests for server management (24 tests)
 - [x] Tests for Docker service (17 tests)
-- [x] Full test coverage (114/114 tests passing, 72% coverage)
+- [x] Full test coverage (129/129 tests passing, 65% coverage)
 
 ### **Phase 4 - Console & RCON** ✅ COMPLETED
 - [x] RCON service implementation (mcrcon integration)
@@ -447,20 +455,30 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] Player count and list retrieval via RCON
 - [x] Permission checks (CONSOLE for commands, VIEW for players)
 - [x] Tests for console endpoints (11 tests)
-- [x] Tests for RCON service (15 tests)
-- [ ] WebSocket connection for real-time console (deferred to Phase 7)
-- [ ] Command history (deferred to Phase 7)
+- [x] Tests for RCON service (16 tests)
+- [ ] WebSocket connection for real-time console (deferred to Phase 8)
+- [ ] Command history (deferred to Phase 8)
 
-### **Phase 5 - File Management** 📋 Planned
+### **Phase 5 - Server Properties** ✅ COMPLETED
+- [x] Server properties schema (40+ configurable properties)
+- [x] Read server.properties from Docker containers
+- [x] Update server.properties (partial updates)
+- [x] GET endpoint for properties (VIEW permission)
+- [x] PATCH endpoint for properties (MANAGE permission)
+- [x] Properties validation (gamemode, difficulty, level_type, etc.)
+- [x] Preserve file format (comments and order)
+- [x] Tests for server properties (15 tests)
+
+### **Phase 6 - File Management** 📋 Planned
 - [ ] File explorer API
 - [ ] Upload files endpoint
 - [ ] Download files endpoint
-- [ ] Edit text files (server.properties, etc.)
+- [ ] Edit text files (configs, plugins, etc.)
 - [ ] Delete files
 - [ ] Create directories
 - [ ] Tests for file operations
 
-### **Phase 6 - Backups** 📋 Planned
+### **Phase 7 - Backups** 📋 Planned
 - [ ] Manual backup creation
 - [ ] List backups
 - [ ] Download backup
@@ -470,7 +488,7 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [ ] Backup retention policy
 - [ ] Tests for backups
 
-### **Phase 7 - Frontend** 🚧 In Progress
+### **Phase 8 - Frontend** 🚧 In Progress
 - [x] Next.js app setup
 - [x] Theme system (dark/light mode with next-themes)
 - [x] Authentication flow (login/logout)
@@ -493,7 +511,7 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [ ] Settings page
 - [ ] Refresh token mechanism
 
-### **Phase 8 - Production Ready** 📋 Future
+### **Phase 9 - Production Ready** 📋 Future
 - [ ] Contributing guidelines (CONTRIBUTING.md)
 - [ ] Backup storage options (S3, local, FTP)
 - [ ] Performance optimization

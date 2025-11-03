@@ -21,11 +21,16 @@ from schemas.server import (
     ServerList,
     ServerStats,
 )
+from schemas.properties import (
+    ServerPropertiesResponse,
+    ServerPropertiesUpdate,
+)
 from services.docker_service import docker_service
 from services.permission_service import PermissionService
 from services.websocket_service import manager
 from services.rcon_service import rcon_service
 from services.properties_parser import properties_parser
+from services.server_properties_service import server_properties_service
 from core.config import settings
 
 router = APIRouter()
@@ -891,6 +896,130 @@ async def sync_server_properties(
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to sync properties: {str(e)}"
+        )
+
+
+@router.get("/{server_id}/properties", response_model=ServerPropertiesResponse)
+async def get_server_properties(
+    server_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get server.properties configuration.
+
+    Requires VIEW permission or higher.
+    """
+    # Get server
+    result = await db.execute(select(Server).where(Server.id == server_id))
+    server = result.scalar_one_or_none()
+
+    if not server:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Server with ID {server_id} not found"
+        )
+
+    # Check permissions (VIEW permission is enough to read properties)
+    if not await PermissionService.has_server_permission(
+        current_user, server_id, ServerPermission.VIEW, db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view this server"
+        )
+
+    # Check if server has a container
+    if not server.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Server does not have a container yet"
+        )
+
+    try:
+        properties = await server_properties_service.get_properties(server.container_id)
+        return properties
+
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="server.properties file not found. Server might not have started yet."
+        )
+    except Exception as e:
+        print(f"⚠️  Failed to get properties for server {server_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to get server properties: {str(e)}"
+        )
+
+
+@router.patch("/{server_id}/properties", response_model=ServerPropertiesResponse)
+async def update_server_properties(
+    server_id: int,
+    updates: ServerPropertiesUpdate,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Update server.properties configuration.
+
+    Note: Some changes (like world settings) only take effect for new worlds
+    or after regenerating the world. Other changes require a server restart.
+
+    Requires MANAGE permission.
+    """
+    # Get server
+    result = await db.execute(select(Server).where(Server.id == server_id))
+    server = result.scalar_one_or_none()
+
+    if not server:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Server with ID {server_id} not found"
+        )
+
+    # Check permissions
+    if not await PermissionService.has_server_permission(
+        current_user, server_id, ServerPermission.MANAGE, db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to manage this server"
+        )
+
+    # Check if server has a container
+    if not server.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Server does not have a container yet"
+        )
+
+    try:
+        properties = await server_properties_service.update_properties(
+            server.container_id,
+            updates
+        )
+
+        # Note: Server should be restarted for changes to take effect
+        # We don't automatically restart to give users control
+
+        return properties
+
+    except FileNotFoundError:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="server.properties file not found. Server might not have started yet."
+        )
+    except ValueError as e:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(e)
+        )
+    except Exception as e:
+        print(f"⚠️  Failed to update properties for server {server_id}: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to update server properties: {str(e)}"
         )
 
 

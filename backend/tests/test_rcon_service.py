@@ -3,7 +3,7 @@ Tests for RCON service.
 """
 
 import pytest
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch, MagicMock, AsyncMock
 from mcrcon import MCRconException
 
 from services.rcon_service import RconService
@@ -23,7 +23,13 @@ class TestRconService:
         """Test successful command execution."""
         mock_response = "Command executed successfully"
 
-        with patch.object(rcon_service, '_execute_command_sync', return_value=mock_response):
+        # Mock the AsyncRconClient
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.send_command.return_value = mock_response
+
+        with patch('services.rcon_service.AsyncRconClient', return_value=mock_client):
             response = await rcon_service.execute_command(
                 host="localhost",
                 port=25575,
@@ -37,7 +43,13 @@ class TestRconService:
         """Test command execution with custom timeout."""
         mock_response = "Players online"
 
-        with patch.object(rcon_service, '_execute_command_sync', return_value=mock_response) as mock_exec:
+        # Mock the AsyncRconClient
+        mock_client = AsyncMock()
+        mock_client.__aenter__.return_value = mock_client
+        mock_client.__aexit__.return_value = None
+        mock_client.send_command.return_value = mock_response
+
+        with patch('services.rcon_service.AsyncRconClient', return_value=mock_client) as mock_rcon:
             await rcon_service.execute_command(
                 host="localhost",
                 port=25575,
@@ -46,9 +58,8 @@ class TestRconService:
                 timeout=5
             )
 
-            # Verify timeout was passed
-            mock_exec.assert_called_once()
-            assert mock_exec.call_args[0][4] == 5  # timeout argument
+            # Verify timeout was passed to AsyncRconClient constructor
+            mock_rcon.assert_called_once_with("localhost", 25575, "test_password", timeout=5.0)
 
     async def test_get_player_count_success(self, rcon_service):
         """Test getting player count via RCON."""
