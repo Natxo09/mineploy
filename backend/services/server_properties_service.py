@@ -108,6 +108,9 @@ class ServerPropertiesService:
             tarinfo = tarfile.TarInfo(name='server.properties')
             tarinfo.size = len(file_data)
             tarinfo.mode = 0o644
+            # Set ownership to match container user (uid=1000, gid=1000)
+            tarinfo.uid = 1000
+            tarinfo.gid = 1000
 
             tar.addfile(tarinfo, io.BytesIO(file_data))
             tar.close()
