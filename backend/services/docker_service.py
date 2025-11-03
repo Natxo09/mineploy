@@ -391,6 +391,48 @@ class DockerService:
         except DockerError:
             return False
 
+    async def get_container_logs(
+        self,
+        container_id: str,
+        tail: int = 500,
+        since: int | None = None
+    ) -> str:
+        """
+        Get container logs.
+
+        Args:
+            container_id: Container ID
+            tail: Number of lines to retrieve from the end (default: 500)
+            since: Unix timestamp to get logs since (optional)
+
+        Returns:
+            Container logs as string
+        """
+        await self.connect()
+
+        try:
+            container = self.docker.containers.container(container_id)
+
+            # Get logs
+            kwargs = {
+                "stdout": True,
+                "stderr": True,
+                "tail": tail,
+            }
+
+            if since:
+                kwargs["since"] = since
+
+            logs = await container.log(**kwargs)
+
+            # Docker logs returns a list of log lines
+            if isinstance(logs, list):
+                return "".join(logs)
+            return logs if logs else ""
+
+        except DockerError as e:
+            raise DockerError(e.status, {"message": f"Failed to get container logs: {str(e)}"})
+
 
 # Global instance
 docker_service = DockerService()

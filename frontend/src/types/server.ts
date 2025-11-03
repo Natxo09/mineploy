@@ -98,3 +98,8 @@ export interface UserServerPermission {
   created_at: string;
   updated_at: string;
 }
+
+export interface ServerLogs {
+  logs: string;
+  lines: number;
+}

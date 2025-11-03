@@ -17,11 +17,13 @@ import {
   FolderOpen,
   Users,
   Loader2,
+  FileText,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ServerStatus } from "@/types";
 import { ServerConsole } from "@/components/console/server-console";
 import { ServerStatsComponent } from "@/components/servers/server-stats";
+import { ServerLogs } from "@/components/servers/server-logs";
 
 const statusConfig: Record<
   ServerStatus,
@@ -196,6 +198,10 @@ export default function ServerDetailPage() {
             <Terminal className="size-4" />
             Console
           </TabsTrigger>
+          <TabsTrigger value="logs">
+            <FileText className="size-4" />
+            Logs
+          </TabsTrigger>
           <TabsTrigger value="stats">
             <BarChart3 className="size-4" />
             Stats
@@ -219,6 +225,10 @@ export default function ServerDetailPage() {
             serverId={serverId}
             isRunning={server.status === "running"}
           />
+        </TabsContent>
+
+        <TabsContent value="logs" className="space-y-4">
+          <ServerLogs serverId={serverId} />
         </TabsContent>
 
         <TabsContent value="stats" className="space-y-4">

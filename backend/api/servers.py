@@ -701,6 +701,78 @@ async def get_server_stats(
     return ServerStats(**stats_data)
 
 
+@router.get("/{server_id}/logs")
+async def get_server_logs(
+    server_id: int,
+    tail: int = 500,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Get server container logs.
+
+    Requires VIEW permission or higher.
+
+    Args:
+        server_id: Server ID
+        tail: Number of lines to retrieve (default: 500, max: 2000)
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Container logs as plain text
+    """
+    # Limit tail to prevent abuse
+    tail = min(tail, 2000)
+
+    # Get server
+    result = await db.execute(select(Server).where(Server.id == server_id))
+    server = result.scalar_one_or_none()
+
+    if not server:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Server with ID {server_id} not found"
+        )
+
+    # Check permissions
+    if not await PermissionService.has_server_permission(
+        current_user, server_id, ServerPermission.VIEW, db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view this server"
+        )
+
+    # Check if server has a container
+    if not server.container_id:
+        return {
+            "logs": "No container found. Server may not have been started yet.",
+            "lines": 1
+        }
+
+    try:
+        # Get container logs
+        logs = await docker_service.get_container_logs(
+            container_id=server.container_id,
+            tail=tail
+        )
+
+        # Count lines
+        log_lines = logs.split("\n") if logs else []
+
+        return {
+            "logs": logs,
+            "lines": len(log_lines)
+        }
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to retrieve logs: {str(e)}"
+        )
+
+
 @router.websocket("/ws/{server_id}")
 async def websocket_endpoint(
     websocket: WebSocket,

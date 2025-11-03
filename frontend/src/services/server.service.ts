@@ -3,6 +3,7 @@ import type {
   Server,
   ServerList,
   ServerStats,
+  ServerLogs,
   CreateServerRequest,
   UpdateServerRequest,
 } from "@/types";
@@ -79,6 +80,16 @@ export const serverService = {
    */
   async getServerStats(id: number): Promise<ServerStats> {
     const response = await apiClient.get<ServerStats>(`/servers/${id}/stats`);
+    return response.data;
+  },
+
+  /**
+   * Get server container logs
+   */
+  async getServerLogs(id: number, tail: number = 500): Promise<ServerLogs> {
+    const response = await apiClient.get<ServerLogs>(
+      `/servers/${id}/logs?tail=${tail}`
+    );
     return response.data;
   },
 };
