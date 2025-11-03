@@ -246,6 +246,7 @@ class DockerCleanupService:
         try:
             # Get all images
             all_images = await self.docker.images.list()
+            print(f"🔍 Total images found: {len(all_images)}")
 
             # Find Minecraft images that are not being used
             images_deleted = 0
@@ -261,24 +262,36 @@ class DockerCleanupService:
                     image_id = container_info.get("Image")
                     if image_id:
                         images_in_use.add(image_id)
+                        print(f"📦 Container using image: {image_id[:12]}")
                 except Exception:
                     pass
 
+            print(f"🎯 Images in use: {len(images_in_use)}")
+
             # Delete unused Minecraft images
+            minecraft_images = 0
             for img in all_images:
                 repo_tags = img.get("RepoTags", [])
                 image_id = img.get("Id")
 
                 # Only delete itzg/minecraft-server images not in use
                 if any("itzg/minecraft-server" in tag for tag in repo_tags):
+                    minecraft_images += 1
+                    print(f"🎮 Minecraft image found: {repo_tags} - ID: {image_id[:12]}")
+
                     if image_id not in images_in_use:
+                        print(f"🗑️  Attempting to delete unused image: {image_id[:12]}")
                         try:
                             await self.docker.images.delete(image_id)
                             images_deleted += 1
                             space_reclaimed += img.get("Size", 0)
-                        except Exception:
-                            # Image might be in use or have dependents
-                            pass
+                            print(f"✅ Deleted image: {image_id[:12]}")
+                        except Exception as e:
+                            print(f"❌ Failed to delete image {image_id[:12]}: {e}")
+                    else:
+                        print(f"⏭️  Skipping in-use image: {image_id[:12]}")
+
+            print(f"📊 Summary: {minecraft_images} Minecraft images, {images_deleted} deleted")
 
             return {
                 "images_deleted": images_deleted,
@@ -362,11 +375,42 @@ class DockerCleanupService:
         await self.connect()
 
         try:
-            # Use aiodocker's prune API
-            result = await self.docker.volumes.prune()
+            # Get all volumes
+            volumes_data = await self.docker.volumes.list()
+            all_volumes = volumes_data.get("Volumes", []) if volumes_data else []
 
-            volumes_deleted = len(result.get("VolumesDeleted", []))
-            space_reclaimed = result.get("SpaceReclaimed", 0)
+            # Get all containers to check which volumes are in use
+            containers = await self.docker.containers.list(all=True)
+            volumes_in_use = set()
+
+            for container_obj in containers:
+                try:
+                    container_info = await container_obj.show()
+                    mounts = container_info.get("Mounts", [])
+                    for mount in mounts:
+                        if mount.get("Type") == "volume":
+                            volumes_in_use.add(mount.get("Name"))
+                except Exception:
+                    pass
+
+            # Delete unused volumes
+            volumes_deleted = 0
+            space_reclaimed = 0
+
+            for volume in all_volumes:
+                volume_name = volume.get("Name")
+                if volume_name and volume_name not in volumes_in_use:
+                    try:
+                        # Get size before deleting
+                        if "UsageData" in volume:
+                            space_reclaimed += volume.get("UsageData", {}).get("Size", 0)
+
+                        # Delete volume
+                        await self.docker.volumes.delete(volume_name)
+                        volumes_deleted += 1
+                    except Exception:
+                        # Volume might be in use or protected
+                        pass
 
             return {
                 "volumes_deleted": volumes_deleted,
@@ -375,6 +419,8 @@ class DockerCleanupService:
             }
 
         except DockerError as e:
+            raise RuntimeError(f"Failed to prune volumes: {str(e)}")
+        except Exception as e:
             raise RuntimeError(f"Failed to prune volumes: {str(e)}")
 
     async def prune_networks(self) -> Dict[str, Any]:
@@ -393,16 +439,47 @@ class DockerCleanupService:
         await self.connect()
 
         try:
-            # Use aiodocker's prune API
-            result = await self.docker.networks.prune()
+            # Get all networks
+            networks = await self.docker.networks.list()
 
-            networks_deleted = len(result.get("NetworksDeleted", []))
+            # Get networks in use by containers
+            containers = await self.docker.containers.list(all=True)
+            networks_in_use = set()
+
+            for container_obj in containers:
+                try:
+                    container_info = await container_obj.show()
+                    network_settings = container_info.get("NetworkSettings", {})
+                    networks_dict = network_settings.get("Networks", {})
+                    for network_name in networks_dict.keys():
+                        networks_in_use.add(network_name)
+                except Exception:
+                    pass
+
+            # Delete unused networks (except default ones)
+            networks_deleted = 0
+            protected_networks = {"bridge", "host", "none", "minecraft_network", "mineploy_network"}
+
+            for network in networks:
+                network_name = network.get("Name")
+                network_id = network.get("Id")
+
+                # Don't delete protected networks or networks in use
+                if network_name and network_name not in protected_networks and network_name not in networks_in_use:
+                    try:
+                        await self.docker.networks.delete(network_id or network_name)
+                        networks_deleted += 1
+                    except Exception:
+                        # Network might be in use or protected
+                        pass
 
             return {
                 "networks_deleted": networks_deleted,
             }
 
         except DockerError as e:
+            raise RuntimeError(f"Failed to prune networks: {str(e)}")
+        except Exception as e:
             raise RuntimeError(f"Failed to prune networks: {str(e)}")
 
     async def prune_all(self) -> Dict[str, Any]:
