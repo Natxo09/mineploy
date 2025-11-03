@@ -120,7 +120,7 @@ async def app_info():
 
 
 # Import and include routers
-from api import setup, auth, users, permissions, servers, console, settings as settings_api
+from api import setup, auth, users, permissions, servers, console, settings as settings_api, docker
 
 app.include_router(setup.router, prefix=f"{settings.api_prefix}/setup", tags=["Setup"])
 app.include_router(auth.router, prefix=f"{settings.api_prefix}", tags=["Authentication"])
@@ -129,6 +129,7 @@ app.include_router(permissions.router, prefix=f"{settings.api_prefix}", tags=["P
 app.include_router(servers.router, prefix=f"{settings.api_prefix}/servers", tags=["Servers"])
 app.include_router(console.router, prefix=f"{settings.api_prefix}/console", tags=["Console"])
 app.include_router(settings_api.router, prefix=f"{settings.api_prefix}/settings", tags=["Settings"])
+app.include_router(docker.router, prefix=f"{settings.api_prefix}", tags=["Docker"])
 
 # Additional routers (will be created later)
 # from api import files, backups
