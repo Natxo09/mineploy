@@ -120,16 +120,16 @@ async def app_info():
 
 
 # Import and include routers
-from api import setup, auth, users, permissions
+from api import setup, auth, users, permissions, servers
 
-app.include_router(setup.router, prefix=f"{settings.api_prefix}/setup")
-app.include_router(auth.router, prefix=f"{settings.api_prefix}")
-app.include_router(users.router, prefix=f"{settings.api_prefix}")
-app.include_router(permissions.router, prefix=f"{settings.api_prefix}")
+app.include_router(setup.router, prefix=f"{settings.api_prefix}/setup", tags=["Setup"])
+app.include_router(auth.router, prefix=f"{settings.api_prefix}", tags=["Authentication"])
+app.include_router(users.router, prefix=f"{settings.api_prefix}", tags=["Users"])
+app.include_router(permissions.router, prefix=f"{settings.api_prefix}", tags=["Permissions"])
+app.include_router(servers.router, prefix=f"{settings.api_prefix}/servers", tags=["Servers"])
 
 # Additional routers (will be created later)
-# from api import servers, console, files, backups
-# app.include_router(servers.router, prefix=f"{settings.api_prefix}/servers", tags=["Servers"])
+# from api import console, files, backups
 # app.include_router(console.router, prefix=f"{settings.api_prefix}/console", tags=["Console"])
 # app.include_router(files.router, prefix=f"{settings.api_prefix}/files", tags=["Files"])
 # app.include_router(backups.router, prefix=f"{settings.api_prefix}/backups", tags=["Backups"])

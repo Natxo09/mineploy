@@ -4,8 +4,8 @@
 
 **Status:** 🚧 Under active development | **Phase 7 In Progress** 🚧
 
-[![Tests](https://img.shields.io/badge/tests-42%2F42%20passing-brightgreen)]()
-[![Coverage](https://img.shields.io/badge/coverage-72%25-yellow)]()
+[![Tests](https://img.shields.io/badge/tests-87%2F87%20passing-brightgreen)]()
+[![Coverage](https://img.shields.io/badge/coverage-73%25-yellow)]()
 
 Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers with a clean web interface.
 
@@ -19,6 +19,8 @@ Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers
 - ✅ Frontend authentication flow (login/logout/setup)
 - ✅ Theme system (dark/light mode)
 - ✅ Basic dashboard page
+- ✅ Server management backend (CRUD, start/stop/restart, stats)
+- ✅ Docker service integration (container management)
 - 📝 Next: Server management UI
 
 ## Features (Planned)
@@ -317,14 +319,41 @@ mineploy/
 │   ├── core/                   # Core configuration
 │   │   ├── config.py
 │   │   ├── database.py
+│   │   ├── dependencies.py
 │   │   └── security.py
 │   ├── models/                 # SQLAlchemy models
+│   │   ├── user.py
+│   │   ├── server.py
+│   │   ├── user_server_permission.py
+│   │   └── refresh_token.py
 │   ├── schemas/                # Pydantic schemas
+│   │   ├── user.py
+│   │   ├── server.py
+│   │   ├── permission.py
+│   │   └── setup.py
 │   ├── api/                    # API endpoints
+│   │   ├── setup.py
+│   │   ├── auth.py
+│   │   ├── users.py
+│   │   ├── permissions.py
+│   │   └── servers.py          # ✅ NEW
 │   ├── services/               # Business logic
-│   ├── tests/                  # Tests
+│   │   ├── permission_service.py
+│   │   └── docker_service.py   # ✅ NEW
+│   ├── tests/                  # Tests (87 tests)
+│   │   ├── test_auth.py
+│   │   ├── test_users.py
+│   │   ├── test_security.py
+│   │   ├── test_config.py
+│   │   ├── test_health.py
+│   │   ├── test_servers.py     # ✅ NEW (24 tests)
+│   │   ├── test_docker_service.py  # ✅ NEW (17 tests)
+│   │   └── conftest.py
 │   └── migrations/             # Alembic migrations
-├── frontend/                   # Next.js app (coming soon)
+├── frontend/                   # Next.js app
+│   ├── app/                    # App router
+│   ├── components/             # React components
+│   └── lib/                    # Utilities
 ├── docker-compose.yml          # Production setup
 ├── docker-compose.dev.yml      # Development setup
 └── README.md
@@ -407,8 +436,18 @@ Key environment variables (see `.env.example` for full list):
 - `GET /api/v1/permissions/users/{user_id}/servers/{server_id}` - Check permissions
 - `DELETE /api/v1/permissions/users/{user_id}/servers/{server_id}` - Revoke permissions
 
+### Server Management
+- `POST /api/v1/servers` - Create new server (Admin only)
+- `GET /api/v1/servers` - List all accessible servers
+- `GET /api/v1/servers/{id}` - Get server details
+- `PUT /api/v1/servers/{id}` - Update server settings (MANAGE permission)
+- `DELETE /api/v1/servers/{id}` - Delete server (MANAGE permission)
+- `POST /api/v1/servers/{id}/start` - Start server (START_STOP permission)
+- `POST /api/v1/servers/{id}/stop` - Stop server (START_STOP permission)
+- `POST /api/v1/servers/{id}/restart` - Restart server (START_STOP permission)
+- `GET /api/v1/servers/{id}/stats` - Get real-time server stats (VIEW permission)
+
 ### Coming Soon
-- Server management (`/api/v1/servers/*`)
 - Console & RCON (`/api/v1/console/*`)
 - File management (`/api/v1/files/*`)
 - Backups (`/api/v1/backups/*`)
@@ -445,16 +484,22 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] Tests for authentication (42/42 tests passing)
 - [ ] Refresh token mechanism (deferred to Phase 7)
 
-### **Phase 3 - Server Management** 📋 Planned
-- [ ] Create server endpoint
-- [ ] Start/stop/restart server
-- [ ] Delete server
-- [ ] Get server status & stats
-- [ ] List all servers
-- [ ] Docker container integration
-- [ ] RCON connection
-- [ ] Server logs endpoint
-- [ ] Tests for server management
+### **Phase 3 - Server Management** ✅ COMPLETED
+- [x] Create server endpoint (POST `/api/v1/servers`)
+- [x] Start/stop/restart server endpoints
+- [x] Delete server endpoint
+- [x] Get server status & stats endpoint
+- [x] List all servers endpoint
+- [x] Docker container integration (aiodocker service)
+- [x] Docker service (create, start, stop, restart, delete containers)
+- [x] Container stats retrieval (CPU, memory usage)
+- [x] Port management (auto-assignment within configured ranges)
+- [x] Server permissions integration (VIEW, START_STOP, MANAGE)
+- [x] Tests for server management (24 tests)
+- [x] Tests for Docker service (17 tests)
+- [x] Full test coverage (87/87 tests passing, 73% coverage)
+- [ ] RCON connection (deferred to Phase 4)
+- [ ] Server logs endpoint (deferred to Phase 4)
 
 ### **Phase 4 - Console & RCON** 📋 Planned
 - [ ] WebSocket connection for console
@@ -499,11 +544,8 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [ ] Refresh token mechanism
 
 ### **Phase 8 - Production Ready** 📋 Future
-- [ ] Monitoring & logging (optional)
-- [ ] Rate limiting
-- [ ] API documentation (OpenAPI/Swagger)
-- [ ] Contributing guidelines
-- [ ] End-to-end tests
+- [ ] Contributing guidelines (CONTRIBUTING.md)
+- [ ] Backup storage options (S3, local, FTP)
 - [ ] Performance optimization
 - [ ] Security audit
 
