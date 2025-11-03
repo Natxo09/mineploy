@@ -246,7 +246,7 @@ export default function SpacePage() {
                   {((diskUsage?.images.count || 0) +
                     (diskUsage?.containers.count || 0) +
                     (diskUsage?.volumes.count || 0))}{" "}
-                  total resources
+                  cleanable resources
                 </Badge>
               </div>
             </div>

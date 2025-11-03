@@ -155,42 +155,61 @@ class DockerCleanupService:
                 except Exception:
                     pass
 
-            # Get ONLY UNUSED Minecraft server images (itzg/minecraft-server)
+            # Get Minecraft server images (itzg/minecraft-server)
             all_images = await self.docker.images.list()
-            unused_minecraft_images = [
+            all_minecraft_images = [
                 img for img in all_images
                 if any("itzg/minecraft-server" in tag for tag in img.get("RepoTags", []))
-                and img.get("Id") not in images_in_use
             ]
+
+            # Separate used vs unused
+            unused_minecraft_images = [
+                img for img in all_minecraft_images
+                if img.get("Id") not in images_in_use
+            ]
+
+            # For display: show UNUSED (cleanable)
             images_size = sum(img.get("Size", 0) for img in unused_minecraft_images)
             images_count = len(unused_minecraft_images)
 
+            # For total: count ALL Minecraft images
+            total_images_size = sum(img.get("Size", 0) for img in all_minecraft_images)
+
             # Get ONLY Mineploy-managed containers (with label mineploy.managed=true)
-            containers_size = 0
+            stopped_containers_size = 0
+            total_containers_size = 0
             mineploy_containers = []
+            stopped_containers_count = 0
 
             for container_obj in all_containers:
                 try:
                     container_info = await container_obj.show()
                     labels = container_info.get("Config", {}).get("Labels", {})
+                    state = container_info.get("State", {})
 
                     # Only count Mineploy-managed containers
                     if labels.get("mineploy.managed") == "true":
                         mineploy_containers.append(container_obj)
                         size_rw = container_info.get("SizeRw", 0)
                         size_root = container_info.get("SizeRootFs", 0)
-                        containers_size += size_rw + size_root
+                        container_size = size_rw + size_root
+
+                        # Total: all Mineploy containers
+                        total_containers_size += container_size
+
+                        # Cleanable: only stopped containers
+                        if not state.get("Running", False):
+                            stopped_containers_size += container_size
+                            stopped_containers_count += 1
                 except Exception:
                     # If we can't get info for this container, skip it
                     pass
 
-            containers_count = len(mineploy_containers)
-
-            # Get volumes - only count ORPHANED volumes (not in use)
+            # Get volumes - calculate both total and orphaned
             volumes_data = await self.docker.volumes.list()
             all_volumes = volumes_data.get("Volumes", []) if volumes_data else []
 
-            # Get volumes in use by containers
+            # Get volumes in use by Mineploy containers
             volumes_in_use = set()
             for container_obj in mineploy_containers:
                 try:
@@ -202,23 +221,29 @@ class DockerCleanupService:
                 except Exception:
                     pass
 
-            # Only count orphaned volumes (not in use by any container)
-            volumes_size = 0
-            orphaned_volumes = []
+            # Calculate both orphaned (cleanable) and total volumes
+            orphaned_volumes_size = 0
+            total_volumes_size = 0
+            orphaned_volumes_count = 0
+
             for v in all_volumes:
                 volume_name = v.get("Name")
-                if volume_name and volume_name not in volumes_in_use:
-                    orphaned_volumes.append(v)
-                    if isinstance(v, dict) and "UsageData" in v:
-                        volumes_size += v.get("UsageData", {}).get("Size", 0)
+                if isinstance(v, dict) and "UsageData" in v:
+                    volume_size = v.get("UsageData", {}).get("Size", 0)
 
-            volumes_count = len(orphaned_volumes)
+                    # If volume is used by a Mineploy container, count it in total
+                    if volume_name and volume_name in volumes_in_use:
+                        total_volumes_size += volume_size
+                    # If orphaned, count it in both total and cleanable
+                    elif volume_name:
+                        orphaned_volumes_size += volume_size
+                        orphaned_volumes_count += 1
 
             # Build cache size (not easily accessible via aiodocker, set to 0)
             build_cache_size = 0
 
-            # Calculate total
-            total_size = images_size + containers_size + volumes_size + build_cache_size
+            # Calculate total: ALL Mineploy resources (including active servers)
+            total_size = total_images_size + total_containers_size + total_volumes_size + orphaned_volumes_size + build_cache_size
 
             return {
                 "images": {
@@ -227,14 +252,14 @@ class DockerCleanupService:
                     "count": images_count,
                 },
                 "containers": {
-                    "size": containers_size,
-                    "size_formatted": self._format_bytes(containers_size),
-                    "count": containers_count,
+                    "size": stopped_containers_size,
+                    "size_formatted": self._format_bytes(stopped_containers_size),
+                    "count": stopped_containers_count,
                 },
                 "volumes": {
-                    "size": volumes_size,
-                    "size_formatted": self._format_bytes(volumes_size),
-                    "count": volumes_count,
+                    "size": orphaned_volumes_size,
+                    "size_formatted": self._format_bytes(orphaned_volumes_size),
+                    "count": orphaned_volumes_count,
                 },
                 "build_cache": {
                     "size": build_cache_size,
