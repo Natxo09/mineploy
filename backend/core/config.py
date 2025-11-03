@@ -38,7 +38,10 @@ class Settings(BaseSettings):
     def parse_cors_origins(cls, v):
         """Parse CORS_ORIGINS from comma-separated string or list."""
         if isinstance(v, str):
-            return [origin.strip() for origin in v.split(",")]
+            # If empty string, return None to use default
+            if not v or v.strip() == "":
+                return None
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v
 
     # Database (MySQL)
