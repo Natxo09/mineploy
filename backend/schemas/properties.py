@@ -82,6 +82,9 @@ class ServerPropertiesResponse(BaseModel):
     @field_validator('level_type')
     @classmethod
     def validate_level_type(cls, v: str) -> str:
+        # Remove backslash escaping from server.properties (e.g., minecraft\:normal -> minecraft:normal)
+        v = v.replace('\\:', ':')
+
         allowed = ['default', 'flat', 'largeBiomes', 'amplified', 'buffet', 'minecraft:normal', 'minecraft:flat', 'minecraft:large_biomes', 'minecraft:amplified']
         if v not in allowed:
             raise ValueError(f'level_type must be one of: {", ".join(allowed)}')
