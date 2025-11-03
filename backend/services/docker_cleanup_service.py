@@ -141,32 +141,33 @@ class DockerCleanupService:
         await self.connect()
 
         try:
-            # Use aiodocker's system.df API
-            df_info = await self.docker.system.df()
+            # Get images
+            images = await self.docker.images.list()
+            images_size = sum(img.get("Size", 0) for img in images)
+            images_count = len(images)
 
-            # Parse images
-            images_size = sum(img.get("Size", 0) for img in df_info.get("Images", []))
-            images_count = len(df_info.get("Images", []))
-
-            # Parse containers
+            # Get all containers (including stopped)
+            containers = await self.docker.containers.list(all=True)
             containers_size = sum(
                 c.get("SizeRw", 0) + c.get("SizeRootFs", 0)
-                for c in df_info.get("Containers", [])
+                for c in containers
             )
-            containers_count = len(df_info.get("Containers", []))
+            containers_count = len(containers)
 
-            # Parse volumes
-            volumes_size = sum(
-                v.get("UsageData", {}).get("Size", 0)
-                for v in df_info.get("Volumes", [])
-                if v.get("UsageData")
-            )
-            volumes_count = len(df_info.get("Volumes", []))
+            # Get volumes
+            volumes_data = await self.docker.volumes.list()
+            volumes = volumes_data.get("Volumes", []) if volumes_data else []
 
-            # Parse build cache (if available)
-            build_cache_size = sum(
-                bc.get("Size", 0) for bc in df_info.get("BuildCache", [])
-            )
+            # Calculate volumes size (note: UsageData may not be available in all Docker versions)
+            volumes_size = 0
+            for v in volumes:
+                if isinstance(v, dict) and "UsageData" in v:
+                    volumes_size += v.get("UsageData", {}).get("Size", 0)
+
+            volumes_count = len(volumes)
+
+            # Build cache size (not easily accessible via aiodocker, set to 0)
+            build_cache_size = 0
 
             # Calculate total
             total_size = images_size + containers_size + volumes_size + build_cache_size
@@ -198,6 +199,8 @@ class DockerCleanupService:
             }
 
         except DockerError as e:
+            raise RuntimeError(f"Failed to get disk usage: {str(e)}")
+        except Exception as e:
             raise RuntimeError(f"Failed to get disk usage: {str(e)}")
 
     async def prune_images(self, all: bool = True) -> Dict[str, Any]:

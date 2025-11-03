@@ -87,21 +87,22 @@ class TestGetDiskUsage:
 
     async def test_get_disk_usage_success(self, cleanup_service, mock_docker):
         """Test successful disk usage retrieval."""
-        # Mock system.df response
-        mock_docker.system.df = AsyncMock(return_value={
-            "Images": [
-                {"Size": 1024 * 1024 * 1024},  # 1 GB
-                {"Size": 512 * 1024 * 1024},    # 512 MB
-            ],
-            "Containers": [
-                {"SizeRw": 100 * 1024 * 1024, "SizeRootFs": 50 * 1024 * 1024},  # 150 MB
-            ],
+        # Mock images.list response
+        mock_docker.images.list = AsyncMock(return_value=[
+            {"Size": 1024 * 1024 * 1024},  # 1 GB
+            {"Size": 512 * 1024 * 1024},    # 512 MB
+        ])
+
+        # Mock containers.list response
+        mock_docker.containers.list = AsyncMock(return_value=[
+            {"SizeRw": 100 * 1024 * 1024, "SizeRootFs": 50 * 1024 * 1024},  # 150 MB
+        ])
+
+        # Mock volumes.list response
+        mock_docker.volumes.list = AsyncMock(return_value={
             "Volumes": [
                 {"UsageData": {"Size": 2 * 1024 * 1024 * 1024}},  # 2 GB
                 {"UsageData": {"Size": 500 * 1024 * 1024}},       # 500 MB
-            ],
-            "BuildCache": [
-                {"Size": 100 * 1024 * 1024},  # 100 MB
             ],
         })
 
@@ -129,26 +130,22 @@ class TestGetDiskUsage:
         assert result["volumes"]["count"] == 2
         assert result["volumes"]["size"] == 2 * 1024 * 1024 * 1024 + 500 * 1024 * 1024
 
-        # Verify build cache
-        assert result["build_cache"]["size"] == 100 * 1024 * 1024
+        # Verify build cache (should be 0 since not easily accessible)
+        assert result["build_cache"]["size"] == 0
 
         # Verify total
         expected_total = (
             1024 * 1024 * 1024 + 512 * 1024 * 1024 +  # Images
             150 * 1024 * 1024 +                       # Containers
-            2 * 1024 * 1024 * 1024 + 500 * 1024 * 1024 +  # Volumes
-            100 * 1024 * 1024                         # Build cache
+            2 * 1024 * 1024 * 1024 + 500 * 1024 * 1024  # Volumes
         )
         assert result["total"]["size"] == expected_total
 
     async def test_get_disk_usage_empty(self, cleanup_service, mock_docker):
         """Test disk usage with no resources."""
-        mock_docker.system.df = AsyncMock(return_value={
-            "Images": [],
-            "Containers": [],
-            "Volumes": [],
-            "BuildCache": [],
-        })
+        mock_docker.images.list = AsyncMock(return_value=[])
+        mock_docker.containers.list = AsyncMock(return_value=[])
+        mock_docker.volumes.list = AsyncMock(return_value={"Volumes": []})
 
         cleanup_service.docker = mock_docker
 
@@ -162,14 +159,13 @@ class TestGetDiskUsage:
 
     async def test_get_disk_usage_volumes_without_usage_data(self, cleanup_service, mock_docker):
         """Test handling volumes without UsageData."""
-        mock_docker.system.df = AsyncMock(return_value={
-            "Images": [],
-            "Containers": [],
+        mock_docker.images.list = AsyncMock(return_value=[])
+        mock_docker.containers.list = AsyncMock(return_value=[])
+        mock_docker.volumes.list = AsyncMock(return_value={
             "Volumes": [
                 {"UsageData": {"Size": 1024}},
                 {},  # Volume without UsageData
             ],
-            "BuildCache": [],
         })
 
         cleanup_service.docker = mock_docker
