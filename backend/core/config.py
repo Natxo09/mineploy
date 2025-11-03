@@ -80,6 +80,10 @@ class Settings(BaseSettings):
         default="/var/run/docker.sock",
         description="Docker socket path"
     )
+    timezone: str = Field(
+        default="Europe/Madrid",
+        description="Timezone for server containers (e.g., Europe/Madrid, America/New_York)"
+    )
 
     # Minecraft Servers
     max_servers: int = Field(default=10, description="Maximum number of servers")

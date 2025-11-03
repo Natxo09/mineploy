@@ -5,6 +5,7 @@ Database models package.
 from models.user import User, UserRole
 from models.server import Server, ServerType, ServerStatus
 from models.backup import Backup
+from models.system_settings import SystemSettings
 
 __all__ = [
     "User",
@@ -13,4 +14,5 @@ __all__ = [
     "ServerType",
     "ServerStatus",
     "Backup",
+    "SystemSettings",
 ]

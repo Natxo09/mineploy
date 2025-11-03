@@ -15,6 +15,8 @@ import {
 } from "lucide-react";
 import type { ServerStats, Server } from "@/types";
 import { cn } from "@/lib/utils";
+import { formatDateTime } from "@/lib/date-utils";
+import { useSystemSettings } from "@/hooks/use-system-settings";
 
 interface ServerStatsProps {
   stats: ServerStats | undefined;
@@ -27,6 +29,7 @@ export function ServerStatsComponent({
   server,
   isRunning,
 }: ServerStatsProps) {
+  const { timezone } = useSystemSettings();
   // Format uptime
   const formatUptime = (seconds: number) => {
     if (seconds === 0) return "0s";
@@ -242,7 +245,7 @@ export function ServerStatsComponent({
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Last Started</p>
               <p className="font-medium text-sm">
-                {new Date(server.last_started_at).toLocaleString()}
+                {formatDateTime(server.last_started_at, undefined, timezone)}
               </p>
             </div>
           )}
@@ -251,7 +254,7 @@ export function ServerStatsComponent({
             <div className="space-y-1">
               <p className="text-sm text-muted-foreground">Last Stopped</p>
               <p className="font-medium text-sm">
-                {new Date(server.last_stopped_at).toLocaleString()}
+                {formatDateTime(server.last_stopped_at, undefined, timezone)}
               </p>
             </div>
           )}
@@ -259,7 +262,7 @@ export function ServerStatsComponent({
           <div className="space-y-1">
             <p className="text-sm text-muted-foreground">Created</p>
             <p className="font-medium text-sm">
-              {new Date(server.created_at).toLocaleString()}
+              {formatDateTime(server.created_at, undefined, timezone)}
             </p>
           </div>
         </div>

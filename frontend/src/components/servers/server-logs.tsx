@@ -15,7 +15,9 @@ import {
   Loader2,
   AlertCircle,
   ChevronDown,
+  Clock,
 } from "lucide-react";
+import { useSystemSettings } from "@/hooks/use-system-settings";
 
 interface ServerLogsProps {
   serverId: number;
@@ -24,6 +26,7 @@ interface ServerLogsProps {
 export function ServerLogs({ serverId }: ServerLogsProps) {
   const [autoScroll, setAutoScroll] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const { timezone } = useSystemSettings();
 
   // Fetch logs
   const {
@@ -238,13 +241,19 @@ export function ServerLogs({ serverId }: ServerLogsProps) {
 
       {/* Footer */}
       <div className="flex items-center justify-between p-3 border-t bg-muted/30 flex-shrink-0">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <div
-            className={`size-2 rounded-full ${
-              isFetching ? "bg-blue-500 animate-pulse" : "bg-green-500"
-            }`}
-          />
-          {isFetching ? "Refreshing..." : "Auto-refresh every 5s"}
+        <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 text-xs text-muted-foreground">
+            <div
+              className={`size-2 rounded-full ${
+                isFetching ? "bg-blue-500 animate-pulse" : "bg-green-500"
+              }`}
+            />
+            {isFetching ? "Refreshing..." : "Auto-refresh every 5s"}
+          </div>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <Clock className="size-3" />
+            <span>{timezone || "Loading..."}</span>
+          </div>
         </div>
         <p className="text-xs text-muted-foreground">
           Showing last {logsData?.lines ?? 0} lines

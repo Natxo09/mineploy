@@ -95,6 +95,7 @@ class DockerService:
         rcon_port: int,
         rcon_password: str,
         memory_mb: int = 2048,
+        timezone: str | None = None,
     ) -> tuple[str, Dict[str, Any]]:
         """
         Create a Minecraft server container.
@@ -107,6 +108,7 @@ class DockerService:
             rcon_port: RCON port
             rcon_password: RCON password
             memory_mb: Memory limit in MB
+            timezone: Timezone for the container (e.g., Europe/Madrid)
 
         Returns:
             Tuple of (container_id, container_info)
@@ -115,6 +117,9 @@ class DockerService:
             DockerError: If container creation fails
         """
         await self.connect()
+
+        # Use provided timezone or fall back to config default
+        tz = timezone or settings.timezone
 
         # Prepare environment variables
         env = [
@@ -127,6 +132,7 @@ class DockerService:
             f"RCON_PASSWORD={rcon_password}",
             "ONLINE_MODE=TRUE",
             "SERVER_PORT=25565",  # Internal port (always 25565 inside container)
+            f"TZ={tz}",  # Set container timezone
         ]
 
         # Container configuration

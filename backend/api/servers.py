@@ -29,6 +29,9 @@ from core.config import settings
 
 router = APIRouter()
 
+# Import after router to avoid circular imports
+from api.settings import get_or_create_settings
+
 
 def _generate_rcon_password() -> str:
     """Generate a secure random RCON password."""
@@ -219,6 +222,9 @@ async def create_server(
         await db.refresh(new_server)
         await manager.broadcast_status_update(new_server.id, "initializing", {"message": "Creating container..."})
 
+        # Get system timezone for container
+        sys_settings = await get_or_create_settings(db)
+
         container_id, container_info = await docker_service.create_container(
             container_name=container_name,
             server_type=server_data.server_type,
@@ -227,6 +233,7 @@ async def create_server(
             rcon_port=rcon_port,
             rcon_password=rcon_password,
             memory_mb=server_data.memory_mb,
+            timezone=sys_settings.timezone,
         )
 
         # Update server with container ID and set to STOPPED
