@@ -53,7 +53,8 @@ export interface CreateServerRequest {
   description?: string;
   server_type: ServerType;
   version: string;
-  port: number;
+  port?: number;
+  rcon_port?: number;
   memory_mb?: number;
 }
 
@@ -61,6 +62,30 @@ export interface UpdateServerRequest {
   name?: string;
   description?: string;
   memory_mb?: number;
+}
+
+export interface ServerStats {
+  server_id: number;
+  status: ServerStatus;
+  online_players: number;
+  max_players: number;
+  cpu_usage: number;
+  memory_usage: number;
+  memory_limit: number;
+  uptime_seconds: number;
+}
+
+export interface ServerList {
+  id: number;
+  name: string;
+  description: string | null;
+  server_type: ServerType;
+  version: string;
+  port: number;
+  status: ServerStatus;
+  is_active: boolean;
+  memory_mb: number;
+  created_at: string;
 }
 
 export interface UserServerPermission {
