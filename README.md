@@ -2,7 +2,7 @@
 
 > Open-source Minecraft server management panel
 
-**Status:** 🚧 Under active development | **Phase 2 Complete** ✅
+**Status:** 🚧 Under active development | **Phase 7 In Progress** 🚧
 
 [![Tests](https://img.shields.io/badge/tests-42%2F42%20passing-brightgreen)]()
 [![Coverage](https://img.shields.io/badge/coverage-72%25-yellow)]()
@@ -12,12 +12,14 @@ Mineploy is a modern, Docker-based panel for managing multiple Minecraft servers
 **Current Status:**
 - ✅ Backend API deployed and running
 - ✅ Database migrations applied
-- ✅ Setup wizard ready
+- ✅ Setup wizard (backend + frontend)
 - ✅ Authentication system complete
 - ✅ User management (CRUD)
 - ✅ Server-specific permissions system
-- ⏸️ Frontend pending
-- 📝 Next: Frontend login & dashboard
+- ✅ Frontend authentication flow (login/logout/setup)
+- ✅ Theme system (dark/light mode)
+- ✅ Basic dashboard page
+- 📝 Next: Server management UI
 
 ## Features (Planned)
 
@@ -442,7 +444,6 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [x] Permission management API
 - [x] Tests for authentication (42/42 tests passing)
 - [ ] Refresh token mechanism (deferred to Phase 7)
-- [ ] Basic frontend login page (moved to Phase 7)
 
 ### **Phase 3 - Server Management** 📋 Planned
 - [ ] Create server endpoint
@@ -481,10 +482,13 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [ ] Backup retention policy
 - [ ] Tests for backups
 
-### **Phase 7 - Frontend** 📋 Planned
-- [ ] Next.js app setup
-- [ ] Authentication flow (login/logout)
-- [ ] Dashboard page
+### **Phase 7 - Frontend** 🚧 In Progress
+- [x] Next.js app setup
+- [x] Theme system (dark/light mode with next-themes)
+- [x] Authentication flow (login/logout)
+- [x] Setup wizard page (initial admin creation)
+- [x] Route protection (middleware + AuthGuard)
+- [x] Dashboard page (basic layout)
 - [ ] Server list & cards
 - [ ] Server detail page
 - [ ] Console terminal (xterm.js)
@@ -492,6 +496,7 @@ Please follow [Conventional Commits](https://www.conventionalcommits.org/) for c
 - [ ] Backup management UI
 - [ ] User management (admin only)
 - [ ] Settings page
+- [ ] Refresh token mechanism
 
 ### **Phase 8 - Production Ready** 📋 Future
 - [ ] Monitoring & logging (optional)
