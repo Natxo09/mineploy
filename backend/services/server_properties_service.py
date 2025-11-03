@@ -52,11 +52,21 @@ class ServerPropertiesService:
             container = self.docker.containers.container(container_id)
 
             # Get file from container as tar archive
-            # aiodocker returns tar data directly, not a stream
-            tar_data = await container.get_archive("/data/server.properties")
+            tar_obj = await container.get_archive("/data/server.properties")
+
+            # Check if it's already a TarFile object or if we need to open it
+            if isinstance(tar_obj, tarfile.TarFile):
+                # Already a TarFile, use directly
+                tar_file = tar_obj
+            else:
+                # It's bytes or a stream, need to open it
+                if hasattr(tar_obj, 'read'):
+                    tar_data = tar_obj.read()
+                else:
+                    tar_data = tar_obj
+                tar_file = tarfile.open(fileobj=io.BytesIO(tar_data))
 
             # Extract file from tar
-            tar_file = tarfile.open(fileobj=io.BytesIO(tar_data))
             file_obj = tar_file.extractfile("server.properties")
 
             if file_obj is None:
