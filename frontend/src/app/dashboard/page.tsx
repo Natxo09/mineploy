@@ -1,17 +1,27 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { AuthGuard } from "@/components/auth/auth-guard";
 import { useAuthStore } from "@/stores/auth.store";
 import { Button } from "@/components/ui/button";
 import { Server } from "lucide-react";
 import { ThemeSwitcherWrapper } from "@/components/theme-switcher-wrapper";
+import { toast } from "sonner";
 
 function DashboardContent() {
+  const router = useRouter();
   const { user, logout } = useAuthStore();
 
   const handleLogout = () => {
+    toast.success("Logged out successfully", {
+      description: "See you next time!",
+    });
+
     logout();
-    window.location.href = "/login";
+
+    setTimeout(() => {
+      router.push("/login");
+    }, 500);
   };
 
   return (

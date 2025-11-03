@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useAuthStore } from "@/stores/auth.store";
 
@@ -15,15 +15,22 @@ interface AuthGuardProps {
 export function AuthGuard({ children }: AuthGuardProps) {
   const router = useRouter();
   const { isAuthenticated } = useAuthStore();
+  const [isHydrated, setIsHydrated] = useState(false);
 
   useEffect(() => {
-    if (!isAuthenticated) {
+    // Mark as hydrated after first render
+    setIsHydrated(true);
+  }, []);
+
+  useEffect(() => {
+    // Only redirect after hydration is complete
+    if (isHydrated && !isAuthenticated) {
       router.push("/login");
     }
-  }, [isAuthenticated, router]);
+  }, [isAuthenticated, isHydrated, router]);
 
-  // Show loading while checking auth or redirecting
-  if (!isAuthenticated) {
+  // Show loading while hydrating or checking auth
+  if (!isHydrated || !isAuthenticated) {
     return (
       <div className="flex min-h-screen items-center justify-center">
         <div className="flex items-center gap-2 text-muted-foreground">

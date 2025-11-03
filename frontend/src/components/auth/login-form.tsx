@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,10 +34,18 @@ export function LoginForm({
     try {
       const response = await authService.login({ username, password });
       login(response);
-      router.push("/dashboard");
+
+      // Show success toast
+      toast.success("Welcome back!", {
+        description: `Logged in as ${response.user.username}`,
+      });
+
+      // Small delay to let the toast appear before redirect
+      setTimeout(() => {
+        router.push("/dashboard");
+      }, 300);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Invalid username or password");
-    } finally {
       setIsLoading(false);
     }
   };

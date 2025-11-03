@@ -7,7 +7,7 @@ import type { AuthState, TokenResponse, User } from "@/types";
  */
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       user: null,
       accessToken: null,
       refreshToken: null,
@@ -51,8 +51,17 @@ export const useAuthStore = create<AuthState>()(
       name: "auth-storage",
       partialize: (state) => ({
         user: state.user,
+        accessToken: state.accessToken,
+        refreshToken: state.refreshToken,
         isAuthenticated: state.isAuthenticated,
       }),
+      onRehydrateStorage: () => {
+        return (state, error) => {
+          if (error) {
+            console.error("Auth rehydration error:", error);
+          }
+        };
+      },
     }
   )
 );

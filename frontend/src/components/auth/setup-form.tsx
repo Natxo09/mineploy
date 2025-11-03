@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import {
@@ -49,8 +50,15 @@ export function SetupForm({
         password,
       });
 
-      // Force a full page reload to login page after successful setup
-      window.location.href = "/login?setup=success";
+      // Show success toast
+      toast.success("Setup completed!", {
+        description: `Admin account created successfully. You can now login.`,
+      });
+
+      // Small delay to let the toast appear before redirect
+      setTimeout(() => {
+        window.location.href = "/login?setup=success";
+      }, 1000);
     } catch (err: any) {
       setError(err.response?.data?.detail || "Failed to complete setup. Please try again.");
       setIsLoading(false);
