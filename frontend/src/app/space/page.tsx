@@ -338,10 +338,10 @@ export default function SpacePage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Database className="size-5 text-orange-500" />
-                    <h3 className="text-lg font-semibold">Volumes</h3>
+                    <h3 className="text-lg font-semibold">Orphaned Volumes</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Orphaned volume data
+                    Unused volumes (not attached to any container)
                   </p>
                 </div>
                 <Badge variant="secondary">{diskUsage?.volumes.count || 0}</Badge>

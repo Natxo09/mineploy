@@ -172,19 +172,33 @@ class DockerCleanupService:
 
             containers_count = len(mineploy_containers)
 
-            # Get volumes - filter by name pattern (minecraft server volumes usually have specific names)
+            # Get volumes - only count ORPHANED volumes (not in use)
             volumes_data = await self.docker.volumes.list()
             all_volumes = volumes_data.get("Volumes", []) if volumes_data else []
 
-            # Filter volumes that belong to Mineploy containers
-            # We'll count all volumes for now since filtering is complex
-            # In future, could track volume names in database
-            volumes_size = 0
-            for v in all_volumes:
-                if isinstance(v, dict) and "UsageData" in v:
-                    volumes_size += v.get("UsageData", {}).get("Size", 0)
+            # Get volumes in use by containers
+            volumes_in_use = set()
+            for container_obj in mineploy_containers:
+                try:
+                    container_info = await container_obj.show()
+                    mounts = container_info.get("Mounts", [])
+                    for mount in mounts:
+                        if mount.get("Type") == "volume":
+                            volumes_in_use.add(mount.get("Name"))
+                except Exception:
+                    pass
 
-            volumes_count = len(all_volumes)
+            # Only count orphaned volumes (not in use by any container)
+            volumes_size = 0
+            orphaned_volumes = []
+            for v in all_volumes:
+                volume_name = v.get("Name")
+                if volume_name and volume_name not in volumes_in_use:
+                    orphaned_volumes.append(v)
+                    if isinstance(v, dict) and "UsageData" in v:
+                        volumes_size += v.get("UsageData", {}).get("Size", 0)
+
+            volumes_count = len(orphaned_volumes)
 
             # Build cache size (not easily accessible via aiodocker, set to 0)
             build_cache_size = 0
