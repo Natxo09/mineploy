@@ -689,8 +689,16 @@ async def get_server_stats(
 
                 # Calculate uptime from last_started_at
                 if server.last_started_at:
-                    from datetime import datetime, timezone
-                    uptime_delta = datetime.now(timezone.utc) - server.last_started_at
+                    from datetime import datetime, timezone as tz
+                    # Ensure both datetimes are timezone-aware
+                    now_utc = datetime.now(tz.utc)
+                    started_at = server.last_started_at
+
+                    # If last_started_at is naive, assume it's UTC
+                    if started_at.tzinfo is None:
+                        started_at = started_at.replace(tzinfo=tz.utc)
+
+                    uptime_delta = now_utc - started_at
                     stats_data["uptime_seconds"] = int(uptime_delta.total_seconds())
         except Exception as e:
             # Docker might not be available, keep default values
