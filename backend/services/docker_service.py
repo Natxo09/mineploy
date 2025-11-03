@@ -328,7 +328,19 @@ class DockerService:
 
         try:
             container = self.docker.containers.container(container_id)
-            stats = await container.stats(stream=False)
+            stats_response = await container.stats(stream=False)
+
+            # Docker stats can return a list with one dict, or just a dict
+            if isinstance(stats_response, list):
+                if not stats_response:
+                    return None
+                stats = stats_response[0]
+            else:
+                stats = stats_response
+
+            # Ensure stats is a dict
+            if not isinstance(stats, dict):
+                return None
 
             # Extract relevant stats
             cpu_stats = stats.get("cpu_stats", {})
