@@ -5,9 +5,10 @@ Docker service for managing Minecraft server containers.
 import aiodocker
 from aiodocker.containers import DockerContainer
 from aiodocker.exceptions import DockerError
-from typing import Optional, Dict, Any
+from typing import Optional, Dict, Any, Callable
 import secrets
 import string
+import json
 
 from core.config import settings
 from models.server import ServerType, ServerStatus
@@ -48,6 +49,46 @@ class DockerService:
             ServerType.PURPUR: "PURPUR",
         }
         return type_map.get(server_type, "VANILLA")
+
+    async def pull_image_with_progress(
+        self,
+        image: str = "itzg/minecraft-server:latest",
+        on_progress: Optional[Callable[[dict], None]] = None,
+    ) -> bool:
+        """
+        Pull a Docker image with progress tracking.
+
+        Args:
+            image: Docker image to pull
+            on_progress: Callback function to receive progress updates
+
+        Returns:
+            True if pull was successful
+
+        Raises:
+            DockerError: If pull fails
+        """
+        await self.connect()
+
+        try:
+            print(f"📦 Pulling Docker image: {image}")
+
+            # Pull image and stream progress
+            async for line in self.docker.images.pull(image, stream=True):
+                if on_progress:
+                    # Parse the JSON line
+                    try:
+                        progress_data = json.loads(line)
+                        on_progress(progress_data)
+                    except json.JSONDecodeError:
+                        pass
+
+            print(f"✅ Successfully pulled image: {image}")
+            return True
+
+        except DockerError as e:
+            print(f"❌ Failed to pull image {image}: {str(e)}")
+            raise DockerError(f"Failed to pull image: {str(e)}", {"message": str(e)})
 
     async def create_container(
         self,

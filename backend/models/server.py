@@ -28,10 +28,12 @@ class ServerType(str, PyEnum):
 class ServerStatus(str, PyEnum):
     """Server status states."""
     STOPPED = "stopped"
-    STARTING = "starting"
-    RUNNING = "running"
-    STOPPING = "stopping"
-    ERROR = "error"
+    DOWNLOADING = "downloading"  # Downloading Docker image
+    INITIALIZING = "initializing"  # Container created, waiting for startup
+    STARTING = "starting"  # Server is starting up
+    RUNNING = "running"  # Server is running
+    STOPPING = "stopping"  # Server is stopping
+    ERROR = "error"  # Server encountered an error
 
 
 class Server(Base):

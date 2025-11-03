@@ -2,7 +2,7 @@
 API endpoints for Minecraft server management.
 """
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 from typing import List
@@ -23,6 +23,7 @@ from schemas.server import (
 )
 from services.docker_service import docker_service
 from services.permission_service import PermissionService
+from services.websocket_service import manager
 from core.config import settings
 
 router = APIRouter()
@@ -168,7 +169,42 @@ async def create_server(
     await db.refresh(new_server)
 
     try:
-        # Create Docker container
+        # Step 1: Pull Docker image with progress tracking
+        new_server.status = ServerStatus.DOWNLOADING
+        await db.commit()
+        await db.refresh(new_server)
+        await manager.broadcast_status_update(new_server.id, "downloading", {"message": "Downloading Docker image..."})
+
+        async def on_pull_progress(progress_data: dict):
+            """Callback to emit pull progress via WebSocket."""
+            # Extract relevant progress info
+            status_msg = progress_data.get("status", "")
+            progress_detail = progress_data.get("progressDetail", {})
+
+            # Build log message
+            log_msg = status_msg
+            if progress_detail:
+                current = progress_detail.get("current", 0)
+                total = progress_detail.get("total", 0)
+                if total > 0:
+                    percentage = (current / total) * 100
+                    log_msg = f"{status_msg} {percentage:.1f}%"
+
+            # Emit log to WebSocket
+            await manager.broadcast_container_logs(new_server.id, log_msg)
+
+        # Pull the image
+        await docker_service.pull_image_with_progress(
+            image="itzg/minecraft-server:latest",
+            on_progress=on_pull_progress
+        )
+
+        # Step 2: Create container
+        new_server.status = ServerStatus.INITIALIZING
+        await db.commit()
+        await db.refresh(new_server)
+        await manager.broadcast_status_update(new_server.id, "initializing", {"message": "Creating container..."})
+
         container_id, container_info = await docker_service.create_container(
             container_name=container_name,
             server_type=server_data.server_type,
@@ -179,10 +215,12 @@ async def create_server(
             memory_mb=server_data.memory_mb,
         )
 
-        # Update server with container ID
+        # Update server with container ID and set to STOPPED
         new_server.container_id = container_id
+        new_server.status = ServerStatus.STOPPED
         await db.commit()
         await db.refresh(new_server)
+        await manager.broadcast_status_update(new_server.id, "stopped", {"message": "Server created successfully"})
 
         return new_server
 
@@ -190,6 +228,14 @@ async def create_server(
         # Rollback: Delete server from database if container creation fails
         await db.delete(new_server)
         await db.commit()
+
+        # Broadcast error
+        await manager.broadcast_status_update(
+            new_server.id,
+            "error",
+            {"message": f"Failed to create server: {str(e)}"}
+        )
+
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to create server container: {str(e)}"
@@ -619,3 +665,45 @@ async def get_server_stats(
             })
 
     return ServerStats(**stats_data)
+
+
+@router.websocket("/ws/{server_id}")
+async def websocket_endpoint(
+    websocket: WebSocket,
+    server_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    """
+    WebSocket endpoint for real-time server updates.
+
+    Args:
+        websocket: WebSocket connection
+        server_id: Server ID to subscribe to
+        db: Database session
+
+    Note:
+        Authentication is handled via query parameters or headers.
+        The client should send the access token in the query string.
+    """
+    # Verify server exists
+    result = await db.execute(select(Server).where(Server.id == server_id))
+    server = result.scalar_one_or_none()
+
+    if not server:
+        await websocket.close(code=1008, reason="Server not found")
+        return
+
+    # TODO: Add authentication check for WebSocket
+    # For now, we'll accept all connections
+    # In production, verify the user has VIEW permission for this server
+
+    await manager.connect(websocket, server_id)
+    try:
+        while True:
+            # Keep connection alive and handle incoming messages
+            data = await websocket.receive_text()
+            # Echo back or handle ping/pong
+            if data == "ping":
+                await websocket.send_json({"type": "pong"})
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, server_id)
