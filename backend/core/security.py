@@ -113,6 +113,17 @@ def verify_token(token: str) -> Optional[str]:
     return user_id
 
 
+def create_refresh_token() -> str:
+    """
+    Create a secure random refresh token.
+
+    Returns:
+        Random token string (64 characters)
+    """
+    import secrets
+    return secrets.token_urlsafe(48)  # Generates ~64 characters
+
+
 def generate_rcon_password(length: int = 32) -> str:
     """
     Generate a secure random password for RCON.

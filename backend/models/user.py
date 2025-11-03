@@ -12,6 +12,7 @@ from core.database import Base
 
 if TYPE_CHECKING:
     from models.user_server_permission import UserServerPermission
+    from models.refresh_token import RefreshToken
 
 
 class UserRole(str, PyEnum):
@@ -51,6 +52,11 @@ class User(Base):
     # Relationships
     server_permissions: Mapped[list["UserServerPermission"]] = relationship(
         "UserServerPermission",
+        back_populates="user",
+        cascade="all, delete-orphan"
+    )
+    refresh_tokens: Mapped[list["RefreshToken"]] = relationship(
+        "RefreshToken",
         back_populates="user",
         cascade="all, delete-orphan"
     )

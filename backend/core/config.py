@@ -70,6 +70,10 @@ class Settings(BaseSettings):
         default=168,  # 7 days
         description="JWT token expiration in hours"
     )
+    refresh_token_expiration_days: int = Field(
+        default=30,  # 30 days
+        description="Refresh token expiration in days"
+    )
 
     # Docker
     docker_socket: str = Field(
