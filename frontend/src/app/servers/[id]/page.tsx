@@ -22,7 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 import type { ServerStatus } from "@/types";
 import { ServerConsole } from "@/components/console/server-console";
-import { ServerStatsComponent } from "@/components/servers/server-stats";
+import { ServerStatsCharts } from "@/components/servers/server-stats-charts";
 import { ServerLogs } from "@/components/servers/server-logs";
 
 const statusConfig: Record<
@@ -232,7 +232,7 @@ export default function ServerDetailPage() {
         </TabsContent>
 
         <TabsContent value="stats" className="space-y-4">
-          <ServerStatsComponent
+          <ServerStatsCharts
             stats={stats}
             server={server}
             isRunning={server.status === "running"}
