@@ -44,18 +44,18 @@ const navigationItems = [
   },
   {
     title: "Servers",
-    url: "/dashboard/servers",
+    url: "/servers",
     icon: Server,
   },
   {
     title: "Users",
-    url: "/dashboard/users",
+    url: "/users",
     icon: Users,
     adminOnly: true,
   },
   {
     title: "Settings",
-    url: "/dashboard/settings",
+    url: "/settings",
     icon: Settings,
   },
 ];
