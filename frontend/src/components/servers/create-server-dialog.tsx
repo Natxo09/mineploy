@@ -63,9 +63,14 @@ export function CreateServerDialog({ open, onOpenChange }: CreateServerDialogPro
   const [serverStatus, setServerStatus] = useState<ServerStatus | null>(null);
 
   // WebSocket for real-time logs
+  // Only connect if server is downloading or initializing (not stopped)
+  const shouldConnect = showLogs &&
+    createdServerId !== null &&
+    serverStatus !== ServerStatus.STOPPED;
+
   const { logs, connected, clearLogs, disconnect } = useWebSocket({
     serverId: createdServerId!,
-    enabled: showLogs && createdServerId !== null,
+    enabled: shouldConnect,
     onStatusUpdate: (status) => {
       setServerStatus(status as ServerStatus);
     },
@@ -117,10 +122,17 @@ export function CreateServerDialog({ open, onOpenChange }: CreateServerDialogPro
 
     createServer.mutate(payload, {
       onSuccess: (data) => {
-        // Show logs viewer and connect to WebSocket
+        // Show logs viewer only if server is downloading/initializing
         setCreatedServerId(data.id);
         setServerStatus(data.status);
-        setShowLogs(true);
+
+        // Only show logs if server is in a transitional state
+        if (data.status === ServerStatus.DOWNLOADING || data.status === ServerStatus.INITIALIZING) {
+          setShowLogs(true);
+        } else {
+          // Server is already stopped (created successfully), close dialog
+          setTimeout(() => handleClose(), 500);
+        }
       },
     });
   };
