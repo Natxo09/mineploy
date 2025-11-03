@@ -83,10 +83,46 @@ export function ServerLogs({ serverId }: ServerLogsProps) {
     logsData?.logs?.includes("eula.txt") ||
     logsData?.logs?.includes("You need to agree to the EULA");
 
+  // Format logs with colors
+  const formatLogs = (logs: string) => {
+    return logs.split("\n").map((line, index) => {
+      let colorClass = "text-foreground";
+      let fontWeight = "";
+
+      // Color by log level
+      if (line.includes("[INFO]") || line.includes("INFO")) {
+        colorClass = "text-blue-600 dark:text-blue-400";
+      } else if (line.includes("[WARN]") || line.includes("WARN")) {
+        colorClass = "text-yellow-600 dark:text-yellow-400";
+        fontWeight = "font-medium";
+      } else if (line.includes("[ERROR]") || line.includes("ERROR")) {
+        colorClass = "text-red-600 dark:text-red-400";
+        fontWeight = "font-semibold";
+      } else if (line.includes("[DEBUG]") || line.includes("DEBUG")) {
+        colorClass = "text-gray-500 dark:text-gray-400";
+      } else if (line.includes("[init]") || line.includes("mc-image-helper")) {
+        colorClass = "text-cyan-600 dark:text-cyan-400";
+      } else if (line.includes("Starting") || line.includes("Done")) {
+        colorClass = "text-green-600 dark:text-green-400";
+        fontWeight = "font-medium";
+      } else if (line.includes("Stopping") || line.includes("Saving")) {
+        colorClass = "text-orange-600 dark:text-orange-400";
+      } else if (line.includes("Unpacking")) {
+        colorClass = "text-purple-600 dark:text-purple-400 text-opacity-70";
+      }
+
+      return (
+        <div key={index} className={`${colorClass} ${fontWeight}`}>
+          {line}
+        </div>
+      );
+    });
+  };
+
   return (
-    <Card className="flex flex-col h-[calc(100vh-20rem)]">
+    <Card className="flex flex-col h-[calc(100vh-20rem)] overflow-hidden">
       {/* Header */}
-      <div className="flex items-center justify-between p-4 border-b">
+      <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
         <div className="flex items-center gap-2">
           <FileText className="size-4 text-muted-foreground" />
           <h3 className="font-semibold">Container Logs</h3>
@@ -148,7 +184,7 @@ export function ServerLogs({ serverId }: ServerLogsProps) {
 
       {/* EULA Warning */}
       {hasEulaError && (
-        <div className="p-4 bg-destructive/10 border-b border-destructive/20">
+        <div className="p-4 bg-destructive/10 border-b border-destructive/20 flex-shrink-0">
           <div className="flex items-start gap-3">
             <AlertCircle className="size-5 text-destructive flex-shrink-0 mt-0.5" />
             <div className="flex-1 space-y-1">
@@ -169,47 +205,39 @@ export function ServerLogs({ serverId }: ServerLogsProps) {
       )}
 
       {/* Logs Content */}
-      <ScrollArea
-        ref={scrollAreaRef}
-        className="flex-1 p-4"
-        onScroll={(e) => {
-          // Detect if user scrolled up manually
-          const target = e.target as HTMLElement;
-          const isAtBottom =
-            target.scrollHeight - target.scrollTop === target.clientHeight;
-          if (!isAtBottom && autoScroll) {
-            setAutoScroll(false);
-          }
-        }}
-      >
-        {isLoading ? (
-          <div className="flex items-center justify-center h-full">
-            <Loader2 className="size-8 animate-spin text-muted-foreground" />
+      <div className="flex-1 overflow-hidden">
+        <ScrollArea ref={scrollAreaRef} className="h-full">
+          <div className="p-4">
+            {isLoading ? (
+              <div className="flex items-center justify-center min-h-[400px]">
+                <Loader2 className="size-8 animate-spin text-muted-foreground" />
+              </div>
+            ) : error ? (
+              <div className="flex flex-col items-center justify-center min-h-[400px] gap-2 text-center">
+                <AlertCircle className="size-8 text-destructive" />
+                <p className="text-sm text-muted-foreground">
+                  Failed to load logs
+                </p>
+                <Button variant="outline" size="sm" onClick={() => refetch()}>
+                  Retry
+                </Button>
+              </div>
+            ) : logsData?.logs ? (
+              <div className="font-mono text-xs space-y-0.5">
+                {formatLogs(logsData.logs)}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center min-h-[400px] gap-2">
+                <FileText className="size-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">No logs available</p>
+              </div>
+            )}
           </div>
-        ) : error ? (
-          <div className="flex flex-col items-center justify-center h-full gap-2 text-center">
-            <AlertCircle className="size-8 text-destructive" />
-            <p className="text-sm text-muted-foreground">
-              Failed to load logs
-            </p>
-            <Button variant="outline" size="sm" onClick={() => refetch()}>
-              Retry
-            </Button>
-          </div>
-        ) : logsData?.logs ? (
-          <pre className="font-mono text-xs whitespace-pre-wrap break-words">
-            {logsData.logs}
-          </pre>
-        ) : (
-          <div className="flex flex-col items-center justify-center h-full gap-2">
-            <FileText className="size-8 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">No logs available</p>
-          </div>
-        )}
-      </ScrollArea>
+        </ScrollArea>
+      </div>
 
       {/* Footer */}
-      <div className="flex items-center justify-between p-3 border-t bg-muted/30">
+      <div className="flex items-center justify-between p-3 border-t bg-muted/30 flex-shrink-0">
         <div className="flex items-center gap-2 text-xs text-muted-foreground">
           <div
             className={`size-2 rounded-full ${
