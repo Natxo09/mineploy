@@ -141,37 +141,50 @@ class DockerCleanupService:
         await self.connect()
 
         try:
-            # Get images
-            images = await self.docker.images.list()
-            images_size = sum(img.get("Size", 0) for img in images)
-            images_count = len(images)
+            # Get ONLY Minecraft server images (itzg/minecraft-server)
+            all_images = await self.docker.images.list()
+            minecraft_images = [
+                img for img in all_images
+                if any("itzg/minecraft-server" in tag for tag in img.get("RepoTags", []))
+            ]
+            images_size = sum(img.get("Size", 0) for img in minecraft_images)
+            images_count = len(minecraft_images)
 
-            # Get all containers (including stopped) - need to get info for each
-            container_objects = await self.docker.containers.list(all=True)
+            # Get ONLY Mineploy-managed containers (with label mineploy.managed=true)
+            all_containers = await self.docker.containers.list(all=True)
             containers_size = 0
-            containers_count = len(container_objects)
+            mineploy_containers = []
 
-            for container_obj in container_objects:
+            for container_obj in all_containers:
                 try:
                     container_info = await container_obj.show()
-                    size_rw = container_info.get("SizeRw", 0)
-                    size_root = container_info.get("SizeRootFs", 0)
-                    containers_size += size_rw + size_root
+                    labels = container_info.get("Config", {}).get("Labels", {})
+
+                    # Only count Mineploy-managed containers
+                    if labels.get("mineploy.managed") == "true":
+                        mineploy_containers.append(container_obj)
+                        size_rw = container_info.get("SizeRw", 0)
+                        size_root = container_info.get("SizeRootFs", 0)
+                        containers_size += size_rw + size_root
                 except Exception:
-                    # If we can't get size for this container, skip it
+                    # If we can't get info for this container, skip it
                     pass
 
-            # Get volumes
-            volumes_data = await self.docker.volumes.list()
-            volumes = volumes_data.get("Volumes", []) if volumes_data else []
+            containers_count = len(mineploy_containers)
 
-            # Calculate volumes size (note: UsageData may not be available in all Docker versions)
+            # Get volumes - filter by name pattern (minecraft server volumes usually have specific names)
+            volumes_data = await self.docker.volumes.list()
+            all_volumes = volumes_data.get("Volumes", []) if volumes_data else []
+
+            # Filter volumes that belong to Mineploy containers
+            # We'll count all volumes for now since filtering is complex
+            # In future, could track volume names in database
             volumes_size = 0
-            for v in volumes:
+            for v in all_volumes:
                 if isinstance(v, dict) and "UsageData" in v:
                     volumes_size += v.get("UsageData", {}).get("Size", 0)
 
-            volumes_count = len(volumes)
+            volumes_count = len(all_volumes)
 
             # Build cache size (not easily accessible via aiodocker, set to 0)
             build_cache_size = 0
@@ -212,7 +225,7 @@ class DockerCleanupService:
 
     async def prune_images(self, all: bool = True) -> Dict[str, Any]:
         """
-        Remove unused Docker images.
+        Remove unused Minecraft server images (itzg/minecraft-server).
 
         Args:
             all: If True, remove all unused images. If False, only dangling images.
@@ -231,11 +244,41 @@ class DockerCleanupService:
         await self.connect()
 
         try:
-            # Use aiodocker's prune API
-            result = await self.docker.images.prune(filters={"dangling": ["false"]} if all else {})
+            # Get all images
+            all_images = await self.docker.images.list()
 
-            images_deleted = len(result.get("ImagesDeleted", []))
-            space_reclaimed = result.get("SpaceReclaimed", 0)
+            # Find Minecraft images that are not being used
+            images_deleted = 0
+            space_reclaimed = 0
+
+            # Get list of images in use by containers
+            containers = await self.docker.containers.list(all=True)
+            images_in_use = set()
+
+            for container_obj in containers:
+                try:
+                    container_info = await container_obj.show()
+                    image_id = container_info.get("Image")
+                    if image_id:
+                        images_in_use.add(image_id)
+                except Exception:
+                    pass
+
+            # Delete unused Minecraft images
+            for img in all_images:
+                repo_tags = img.get("RepoTags", [])
+                image_id = img.get("Id")
+
+                # Only delete itzg/minecraft-server images not in use
+                if any("itzg/minecraft-server" in tag for tag in repo_tags):
+                    if image_id not in images_in_use:
+                        try:
+                            await self.docker.images.delete(image_id)
+                            images_deleted += 1
+                            space_reclaimed += img.get("Size", 0)
+                        except Exception:
+                            # Image might be in use or have dependents
+                            pass
 
             return {
                 "images_deleted": images_deleted,
@@ -245,10 +288,12 @@ class DockerCleanupService:
 
         except DockerError as e:
             raise RuntimeError(f"Failed to prune images: {str(e)}")
+        except Exception as e:
+            raise RuntimeError(f"Failed to prune images: {str(e)}")
 
     async def prune_containers(self) -> Dict[str, Any]:
         """
-        Remove stopped containers.
+        Remove stopped Mineploy-managed containers.
 
         Returns:
             Dictionary with pruning results:
@@ -264,11 +309,29 @@ class DockerCleanupService:
         await self.connect()
 
         try:
-            # Use aiodocker's prune API
-            result = await self.docker.containers.prune()
+            # Get all containers
+            all_containers = await self.docker.containers.list(all=True)
 
-            containers_deleted = len(result.get("ContainersDeleted", []))
-            space_reclaimed = result.get("SpaceReclaimed", 0)
+            containers_deleted = 0
+            space_reclaimed = 0
+
+            for container_obj in all_containers:
+                try:
+                    container_info = await container_obj.show()
+                    labels = container_info.get("Config", {}).get("Labels", {})
+                    state = container_info.get("State", {})
+
+                    # Only delete Mineploy-managed stopped containers
+                    if labels.get("mineploy.managed") == "true" and not state.get("Running", False):
+                        size_rw = container_info.get("SizeRw", 0)
+                        size_root = container_info.get("SizeRootFs", 0)
+
+                        await container_obj.delete()
+                        containers_deleted += 1
+                        space_reclaimed += size_rw + size_root
+                except Exception:
+                    # Container might be running or have issues
+                    pass
 
             return {
                 "containers_deleted": containers_deleted,
@@ -277,6 +340,8 @@ class DockerCleanupService:
             }
 
         except DockerError as e:
+            raise RuntimeError(f"Failed to prune containers: {str(e)}")
+        except Exception as e:
             raise RuntimeError(f"Failed to prune containers: {str(e)}")
 
     async def prune_volumes(self) -> Dict[str, Any]:

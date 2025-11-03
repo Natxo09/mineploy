@@ -213,7 +213,7 @@ export default function SpacePage() {
               Space Management
             </h1>
             <p className="text-muted-foreground">
-              Monitor Docker disk usage and cleanup unused resources
+              Monitor Mineploy disk usage and cleanup unused Minecraft server resources
             </p>
           </div>
           <Button onClick={() => refetch()} variant="outline" disabled={isLoading}>
@@ -233,9 +233,9 @@ export default function SpacePage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div className="space-y-1">
-                <h2 className="text-2xl font-bold">Total Docker Disk Usage</h2>
+                <h2 className="text-2xl font-bold">Total Mineploy Disk Usage</h2>
                 <p className="text-sm text-muted-foreground">
-                  Combined usage across all Docker resources
+                  Space used by Minecraft server images and containers
                 </p>
               </div>
               <div className="text-right">
@@ -277,9 +277,9 @@ export default function SpacePage() {
                 onClick={() =>
                   setConfirmAction({
                     type: "images",
-                    title: "Clean Unused Images",
+                    title: "Clean Unused Minecraft Images",
                     description:
-                      "This will remove all unused Docker images. Images currently used by containers will not be affected.",
+                      "This will remove unused itzg/minecraft-server images. Only Minecraft server images not currently used by containers will be deleted. Other Docker images on your system will not be affected.",
                   })
                 }
                 variant="outline"
@@ -316,9 +316,9 @@ export default function SpacePage() {
                 onClick={() =>
                   setConfirmAction({
                     type: "containers",
-                    title: "Clean Stopped Containers",
+                    title: "Clean Stopped Mineploy Containers",
                     description:
-                      "This will remove all stopped containers. Running servers will not be affected.",
+                      "This will remove stopped Mineploy-managed containers only. Running servers and other Docker containers will not be affected.",
                   })
                 }
                 variant="outline"
@@ -419,11 +419,7 @@ export default function SpacePage() {
                   Complete Cleanup
                 </h3>
                 <p className="text-sm text-muted-foreground">
-                  Remove all unused Docker resources (images, containers, volumes, and
-                  networks) in one operation. This is equivalent to{" "}
-                  <code className="bg-muted px-1 py-0.5 rounded text-xs">
-                    docker system prune -af --volumes
-                  </code>
+                  Remove all unused Mineploy resources (Minecraft images, stopped containers, orphaned volumes, and unused networks) in one operation. Other Docker resources on your system will not be affected.
                 </p>
                 <Alert>
                   <Info className="size-4" />
@@ -439,9 +435,9 @@ export default function SpacePage() {
               onClick={() =>
                 setConfirmAction({
                   type: "all",
-                  title: "Complete Docker Cleanup",
+                  title: "Complete Mineploy Cleanup",
                   description:
-                    "This will remove ALL unused Docker resources including images, stopped containers, orphaned volumes, and unused networks. This action cannot be undone and will permanently delete orphaned Minecraft world data. Are you absolutely sure?",
+                    "This will remove ALL unused Mineploy resources including unused Minecraft images, stopped containers, orphaned volumes, and unused networks. Other Docker resources will not be affected. This action cannot be undone and will permanently delete orphaned Minecraft world data. Are you absolutely sure?",
                 })
               }
               variant="destructive"

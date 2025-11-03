@@ -51,10 +51,10 @@ async def prune_docker_images(
     current_user: User = Depends(require_admin),
 ):
     """
-    Remove unused Docker images.
+    Remove unused Minecraft server images.
 
-    This will delete all images not referenced by any container.
-    The itzg/minecraft-server images will be removed if no containers use them.
+    This will ONLY delete itzg/minecraft-server images not referenced by any container.
+    Other Docker images on your system will not be affected.
 
     Requires admin role.
     """
@@ -80,9 +80,10 @@ async def prune_docker_containers(
     current_user: User = Depends(require_admin),
 ):
     """
-    Remove stopped containers.
+    Remove stopped Mineploy-managed containers.
 
-    This will delete all stopped containers that are not currently running.
+    This will ONLY delete stopped containers managed by Mineploy (with mineploy.managed=true label).
+    Other Docker containers on your system will not be affected.
     Active Mineploy servers will not be affected.
 
     Requires admin role.
