@@ -52,12 +52,8 @@ class ServerPropertiesService:
             container = self.docker.containers.container(container_id)
 
             # Get file from container as tar archive
-            tar_stream = await container.get_archive("/data/server.properties")
-
-            # Read tar stream
-            tar_data = b""
-            async for chunk in tar_stream:
-                tar_data += chunk
+            # aiodocker returns tar data directly, not a stream
+            tar_data = await container.get_archive("/data/server.properties")
 
             # Extract file from tar
             tar_file = tarfile.open(fileobj=io.BytesIO(tar_data))
