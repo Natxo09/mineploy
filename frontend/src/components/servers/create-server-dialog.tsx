@@ -151,14 +151,12 @@ export function CreateServerDialog({ open, onOpenChange }: CreateServerDialogPro
 
   // Auto-close when server creation is complete
   useEffect(() => {
-    if (serverStatus === ServerStatus.STOPPED && showLogs) {
-      // Give user 2 seconds to see the success message
-      const timer = setTimeout(() => {
-        handleClose();
-      }, 2000);
-      return () => clearTimeout(timer);
+    if (serverStatus === ServerStatus.STOPPED && createdServerId !== null) {
+      // Close immediately when server creation is complete (STOPPED state)
+      // Don't show logs for stopped servers - they're not running yet
+      handleClose();
     }
-  }, [serverStatus, showLogs]);
+  }, [serverStatus, createdServerId]);
 
   return (
     <Dialog open={open} onOpenChange={showLogs ? undefined : onOpenChange}>

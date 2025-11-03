@@ -111,6 +111,9 @@ export function DeleteDialog({
                 id="confirm-name"
                 value={confirmText}
                 onChange={(e) => setConfirmText(e.target.value)}
+                onMouseDown={(e) => e.stopPropagation()}
+                onClick={(e) => e.stopPropagation()}
+                onKeyDown={(e) => e.stopPropagation()}
                 placeholder="Enter server name"
                 disabled={isDeleting}
                 autoComplete="off"
