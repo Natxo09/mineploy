@@ -1,0 +1,61 @@
+version: '3.8'
+
+services:
+  # Development API Backend with hot-reload
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: mineploy_api_dev
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    volumes:
+      # Mount source code for hot-reload
+      - ./backend:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistent data
+      - ./data:/app/data
+      - ./backups:/app/backups
+    environment:
+      - DEBUG=true
+      - DB_TYPE=sqlite
+      - SECRET_KEY=dev_secret_key_change_in_production
+      - CORS_ORIGINS=http://localhost:3000,http://127.0.0.1:3000
+    networks:
+      - mineploy_dev
+      - minecraft
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn main:app --reload --host 0.0.0.0 --port 8000"
+
+  # Frontend (Next.js) with hot-reload
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile.dev
+    container_name: mineploy_frontend_dev
+    restart: unless-stopped
+    ports:
+      - "3000:3000"
+    volumes:
+      # Mount source code for hot-reload
+      - ./frontend:/app
+      - /app/node_modules
+      - /app/.next
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
+      - NODE_ENV=development
+    networks:
+      - mineploy_dev
+    depends_on:
+      - api
+    command: npm run dev
+
+networks:
+  mineploy_dev:
+    name: mineploy_dev_network
+    driver: bridge
+  minecraft:
+    name: minecraft_network
+    driver: bridge

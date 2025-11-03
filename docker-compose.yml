@@ -1,0 +1,110 @@
+version: '3.8'
+
+services:
+  # Mineploy API Backend
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: mineploy_api
+    restart: unless-stopped
+    ports:
+      - "${API_PORT:-8000}:8000"
+    volumes:
+      # Mount Docker socket to manage Minecraft containers
+      - /var/run/docker.sock:/var/run/docker.sock
+      # Persistent data
+      - ./data:/app/data
+      - ./backups:/app/backups
+      - ./logs:/app/logs
+    environment:
+      # Application
+      - APP_NAME=${APP_NAME:-Mineploy}
+      - DEBUG=${DEBUG:-false}
+
+      # Database
+      - DB_TYPE=${DB_TYPE:-sqlite}
+      - DB_HOST=${DB_HOST:-localhost}
+      - DB_PORT=${DB_PORT:-3306}
+      - DB_USER=${DB_USER:-mineploy}
+      - DB_PASSWORD=${DB_PASSWORD}
+      - DB_NAME=${DB_NAME:-mineploy}
+
+      # Security
+      - SECRET_KEY=${SECRET_KEY}
+      - JWT_EXPIRATION_HOURS=${JWT_EXPIRATION_HOURS:-168}
+
+      # CORS
+      - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000}
+
+      # Limits
+      - MAX_SERVERS=${MAX_SERVERS:-10}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - BACKUP_MAX_SIZE_GB=${BACKUP_MAX_SIZE_GB:-50}
+    networks:
+      - mineploy
+      - minecraft
+    depends_on:
+      - mysql
+    healthcheck:
+      test: ["CMD", "python", "-c", "import httpx; httpx.get('http://localhost:8000/api/v1/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MySQL Database (optional, comment out if using SQLite)
+  mysql:
+    image: mysql:8.0
+    container_name: mineploy_mysql
+    restart: unless-stopped
+    ports:
+      - "${MYSQL_PORT:-3307}:3306"
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-rootpassword}
+      - MYSQL_DATABASE=${DB_NAME:-mineploy}
+      - MYSQL_USER=${DB_USER:-mineploy}
+      - MYSQL_PASSWORD=${DB_PASSWORD}
+    volumes:
+      - mysql_data:/var/lib/mysql
+    networks:
+      - mineploy
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Frontend (Next.js)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: mineploy_frontend
+    restart: unless-stopped
+    ports:
+      - "${PANEL_PORT:-3000}:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL:-http://localhost:8000/api/v1}
+    networks:
+      - mineploy
+    depends_on:
+      - api
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+networks:
+  mineploy:
+    name: mineploy_network
+    driver: bridge
+  minecraft:
+    name: minecraft_network
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

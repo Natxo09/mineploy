@@ -1,0 +1,23 @@
+# Include production dependencies
+-r requirements.txt
+
+# Testing
+pytest==8.4.2
+pytest-asyncio==1.2.0
+pytest-cov==7.0.0
+pytest-mock==3.15.1
+
+# Code quality
+black==25.9.0
+isort==7.0.0
+flake8==7.3.0
+mypy==1.18.2
+
+# Type stubs
+types-passlib==1.7.7.20250602
+types-python-jose==3.5.0.20250531
+types-python-dateutil==2.9.0.20251008
+
+# Development tools
+ipython==9.6.0
+ipdb==0.13.13

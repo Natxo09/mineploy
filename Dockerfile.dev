@@ -1,0 +1,25 @@
+# Development Dockerfile for Mineploy backend
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    gcc \
+    docker.io \
+    && rm -rf /var/lib/apt/lists/*
+
+# Copy requirements
+COPY backend/requirements.txt backend/requirements-dev.txt ./
+
+# Install Python dependencies (including dev dependencies)
+RUN pip install --no-cache-dir -r requirements-dev.txt
+
+# Create directories
+RUN mkdir -p data backups logs
+
+# Expose API port
+EXPOSE 8000
+
+# Development server with hot-reload
+CMD ["uvicorn", "main:app", "--reload", "--host", "0.0.0.0", "--port", "8000"]

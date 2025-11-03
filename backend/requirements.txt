@@ -1,0 +1,41 @@
+# Core Framework
+fastapi==0.120.4
+uvicorn[standard]==0.38.0
+python-multipart==0.0.20
+
+# Async support
+aiofiles==25.1.0
+anyio==4.11.0
+
+# Docker SDK
+aiodocker==0.24.0
+
+# Database (MySQL)
+sqlalchemy[asyncio]==2.0.44
+alembic==1.17.1
+aiomysql==0.3.2
+
+# Minecraft RCON
+mcrcon==0.7.0
+
+# Authentication & Security
+python-jose[cryptography]==3.5.0
+passlib[bcrypt]==1.7.4
+bcrypt==5.0.0
+
+# Validation & Settings
+pydantic==2.12.3
+pydantic-settings==2.11.0
+
+# WebSockets
+python-socketio==5.14.3
+websockets==15.0.1
+
+# HTTP Client (for health checks, etc.)
+httpx==0.28.1
+
+# Scheduling (for automated backups)
+apscheduler==3.11.1
+
+# Date/time utilities
+python-dateutil==2.9.0.post0
