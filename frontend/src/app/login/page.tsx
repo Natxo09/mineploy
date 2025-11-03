@@ -20,17 +20,13 @@ export default function LoginPage() {
     const checkSetupStatus = async () => {
       try {
         const status = await setupService.getStatus();
-        console.log("Setup status response:", status);
-        console.log("setupSuccess param:", setupSuccess);
 
         // Always trust the backend status
         // If backend says setup is required, show setup form regardless of URL params
-        console.log("Setting needsSetup to:", status.requires_setup);
         setNeedsSetup(status.requires_setup);
 
         // Clean up the URL param if setup is still needed
         if (status.requires_setup && setupSuccess) {
-          console.log("Cleaning up stale setup=success param");
           window.history.replaceState({}, "", "/login");
         }
       } catch (error) {
@@ -61,8 +57,6 @@ export default function LoginPage() {
       </div>
     );
   }
-
-  console.log("Rendering login page. needsSetup:", needsSetup);
 
   return (
     <div className="grid min-h-svh lg:grid-cols-2">
