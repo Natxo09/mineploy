@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatDistanceToNow } from "date-fns";
 import {
   Play,
@@ -92,6 +93,7 @@ const serverTypeConfig: Record<ServerType, { label: string; color: string }> = {
 };
 
 export function ServerCard({ server }: ServerCardProps) {
+  const router = useRouter();
   const statusInfo = statusConfig[server.status];
   const typeInfo = serverTypeConfig[server.server_type];
   const { startServer, stopServer, restartServer, deleteServer } = useServerActions();
@@ -126,10 +128,24 @@ export function ServerCard({ server }: ServerCardProps) {
     });
   };
 
-  const memoryPercentage = 65; // Mockup data - will come from stats API
+  const handleCardClick = (e: React.MouseEvent) => {
+    // Don't navigate if clicking on buttons or dropdowns
+    const target = e.target as HTMLElement;
+    if (
+      target.closest("button") ||
+      target.closest('[role="menuitem"]') ||
+      target.closest('[role="menu"]')
+    ) {
+      return;
+    }
+    router.push(`/servers/${server.id}`);
+  };
 
   return (
-    <Card className="group hover:shadow-md transition-all cursor-pointer">
+    <Card
+      className="group hover:shadow-md transition-all cursor-pointer"
+      onClick={handleCardClick}
+    >
       <CardHeader className="pb-3">
         <div className="flex items-start justify-between gap-2">
           <div className="flex-1 min-w-0">
@@ -201,38 +217,54 @@ export function ServerCard({ server }: ServerCardProps) {
 
       <CardContent className="pb-3">
         <div className="space-y-3">
-          {/* Memory Usage */}
-          <div className="space-y-1.5">
-            <div className="flex items-center justify-between text-xs">
-              <div className="flex items-center gap-1.5 text-muted-foreground">
-                <HardDrive className="size-3.5" />
-                <span>Memory</span>
+          {/* Memory Usage - Only show if server is running */}
+          {server.status === "running" && (
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <div className="flex items-center gap-1.5 text-muted-foreground">
+                  <HardDrive className="size-3.5" />
+                  <span>Memory</span>
+                </div>
+                <span className="font-medium text-muted-foreground">
+                  {(server.memory_mb / 1024).toFixed(1)} GB allocated
+                </span>
               </div>
-              <span className="font-medium">
-                {server.status === "running"
-                  ? `${((server.memory_mb * memoryPercentage) / 100 / 1024).toFixed(1)} / ${(server.memory_mb / 1024).toFixed(1)} GB`
-                  : `${(server.memory_mb / 1024).toFixed(1)} GB`}
-              </span>
             </div>
-            <Progress
-              value={server.status === "running" ? memoryPercentage : 0}
-              className="h-1.5"
-            />
-          </div>
+          )}
 
           {/* Server Info */}
           <div className="grid grid-cols-2 gap-3 pt-1">
             <div className="flex items-center gap-2 text-xs">
-              <Activity className="size-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Port:</span>
-              <span className="font-medium">{server.port}</span>
+              {server.status !== "running" && (
+                <>
+                  <HardDrive className="size-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Memory:</span>
+                  <span className="font-medium">{(server.memory_mb / 1024).toFixed(1)} GB</span>
+                </>
+              )}
+              {server.status === "running" && (
+                <>
+                  <Activity className="size-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Port:</span>
+                  <span className="font-medium">{server.port}</span>
+                </>
+              )}
             </div>
             <div className="flex items-center gap-2 text-xs">
-              <Users className="size-3.5 text-muted-foreground" />
-              <span className="text-muted-foreground">Players:</span>
-              <span className="font-medium">
-                {server.status === "running" ? "12/20" : "0/20"}
-              </span>
+              {server.status !== "running" && (
+                <>
+                  <Activity className="size-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Port:</span>
+                  <span className="font-medium">{server.port}</span>
+                </>
+              )}
+              {server.status === "running" && (
+                <>
+                  <Users className="size-3.5 text-muted-foreground" />
+                  <span className="text-muted-foreground">Players:</span>
+                  <span className="font-medium">Loading...</span>
+                </>
+              )}
             </div>
           </div>
         </div>

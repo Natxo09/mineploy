@@ -671,13 +671,17 @@ async def get_server_stats(
 
     if server.container_id and server.status == ServerStatus.RUNNING:
         # Get Docker stats (CPU, RAM)
-        docker_stats = await docker_service.get_container_stats(server.container_id)
-        if docker_stats:
-            stats_data.update({
-                "cpu_usage": docker_stats["cpu_percent"],
-                "memory_usage": docker_stats["memory_usage_mb"],
-                "memory_limit": docker_stats["memory_limit_mb"],
-            })
+        try:
+            docker_stats = await docker_service.get_container_stats(server.container_id)
+            if docker_stats:
+                stats_data.update({
+                    "cpu_usage": docker_stats["cpu_percent"],
+                    "memory_usage": docker_stats["memory_usage_mb"],
+                    "memory_limit": docker_stats["memory_limit_mb"],
+                })
+        except Exception as e:
+            # Docker might not be available, keep default values
+            print(f"⚠️  Failed to get Docker stats for server {server_id}: {e}")
 
         # Get player data via RCON
         try:
