@@ -29,15 +29,20 @@ async def get_docker_disk_usage(
         return usage
 
     except RuntimeError as e:
+        import traceback
+        print(f"⚠️  RuntimeError getting Docker disk usage: {e}")
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=str(e)
         )
     except Exception as e:
+        import traceback
         print(f"⚠️  Failed to get Docker disk usage: {e}")
+        print(traceback.format_exc())
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to retrieve Docker disk usage"
+            detail=f"Failed to retrieve Docker disk usage: {str(e)}"
         )
 
 

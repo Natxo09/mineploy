@@ -9,6 +9,7 @@ import {
   Settings,
   LogOut,
   ChevronUp,
+  HardDrive,
 } from "lucide-react";
 
 import {
@@ -51,6 +52,12 @@ const navigationItems = [
     title: "Users",
     url: "/users",
     icon: Users,
+    adminOnly: true,
+  },
+  {
+    title: "Space",
+    url: "/space",
+    icon: HardDrive,
     adminOnly: true,
   },
   {

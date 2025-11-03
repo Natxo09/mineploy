@@ -8,3 +8,4 @@ export * from "./setup";
 export * from "./console";
 export * from "./settings";
 export * from "./properties";
+export * from "./docker";
