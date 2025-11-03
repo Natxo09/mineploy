@@ -262,10 +262,10 @@ export default function SpacePage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Image className="size-5 text-blue-500" />
-                    <h3 className="text-lg font-semibold">Docker Images</h3>
+                    <h3 className="text-lg font-semibold">Unused Images</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Unused Minecraft server images
+                    Minecraft images not used by any server
                   </p>
                 </div>
                 <Badge variant="secondary">{diskUsage?.images.count || 0}</Badge>
@@ -299,10 +299,10 @@ export default function SpacePage() {
                 <div className="space-y-1">
                   <div className="flex items-center gap-2">
                     <Container className="size-5 text-green-500" />
-                    <h3 className="text-lg font-semibold">Containers</h3>
+                    <h3 className="text-lg font-semibold">Stopped Containers</h3>
                   </div>
                   <p className="text-sm text-muted-foreground">
-                    Stopped containers
+                    Mineploy containers that are stopped
                   </p>
                 </div>
                 <Badge variant="secondary">

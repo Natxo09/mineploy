@@ -141,17 +141,31 @@ class DockerCleanupService:
         await self.connect()
 
         try:
-            # Get ONLY Minecraft server images (itzg/minecraft-server)
+            # Get all containers first (needed for multiple checks)
+            all_containers = await self.docker.containers.list(all=True)
+
+            # Build set of images in use
+            images_in_use = set()
+            for container_obj in all_containers:
+                try:
+                    container_info = await container_obj.show()
+                    image_id = container_info.get("Image")
+                    if image_id:
+                        images_in_use.add(image_id)
+                except Exception:
+                    pass
+
+            # Get ONLY UNUSED Minecraft server images (itzg/minecraft-server)
             all_images = await self.docker.images.list()
-            minecraft_images = [
+            unused_minecraft_images = [
                 img for img in all_images
                 if any("itzg/minecraft-server" in tag for tag in img.get("RepoTags", []))
+                and img.get("Id") not in images_in_use
             ]
-            images_size = sum(img.get("Size", 0) for img in minecraft_images)
-            images_count = len(minecraft_images)
+            images_size = sum(img.get("Size", 0) for img in unused_minecraft_images)
+            images_count = len(unused_minecraft_images)
 
             # Get ONLY Mineploy-managed containers (with label mineploy.managed=true)
-            all_containers = await self.docker.containers.list(all=True)
             containers_size = 0
             mineploy_containers = []
 
