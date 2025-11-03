@@ -93,10 +93,13 @@ class TestGetDiskUsage:
             {"Size": 512 * 1024 * 1024},    # 512 MB
         ])
 
-        # Mock containers.list response
-        mock_docker.containers.list = AsyncMock(return_value=[
-            {"SizeRw": 100 * 1024 * 1024, "SizeRootFs": 50 * 1024 * 1024},  # 150 MB
-        ])
+        # Mock container objects
+        mock_container = MagicMock()
+        mock_container.show = AsyncMock(return_value={
+            "SizeRw": 100 * 1024 * 1024,
+            "SizeRootFs": 50 * 1024 * 1024
+        })
+        mock_docker.containers.list = AsyncMock(return_value=[mock_container])
 
         # Mock volumes.list response
         mock_docker.volumes.list = AsyncMock(return_value={
@@ -154,6 +157,7 @@ class TestGetDiskUsage:
         assert result["images"]["count"] == 0
         assert result["images"]["size"] == 0
         assert result["containers"]["count"] == 0
+        assert result["containers"]["size"] == 0
         assert result["volumes"]["count"] == 0
         assert result["total"]["size"] == 0
 

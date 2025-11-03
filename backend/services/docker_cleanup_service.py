@@ -146,13 +146,20 @@ class DockerCleanupService:
             images_size = sum(img.get("Size", 0) for img in images)
             images_count = len(images)
 
-            # Get all containers (including stopped)
-            containers = await self.docker.containers.list(all=True)
-            containers_size = sum(
-                c.get("SizeRw", 0) + c.get("SizeRootFs", 0)
-                for c in containers
-            )
-            containers_count = len(containers)
+            # Get all containers (including stopped) - need to get info for each
+            container_objects = await self.docker.containers.list(all=True)
+            containers_size = 0
+            containers_count = len(container_objects)
+
+            for container_obj in container_objects:
+                try:
+                    container_info = await container_obj.show()
+                    size_rw = container_info.get("SizeRw", 0)
+                    size_root = container_info.get("SizeRootFs", 0)
+                    containers_size += size_rw + size_root
+                except Exception:
+                    # If we can't get size for this container, skip it
+                    pass
 
             # Get volumes
             volumes_data = await self.docker.volumes.list()
