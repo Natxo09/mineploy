@@ -2,6 +2,7 @@
 
 import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import Image from "next/image";
 import { consoleService } from "@/services/console.service";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -278,14 +279,13 @@ export function ServerConsole({ serverId, isRunning }: ServerConsoleProps) {
                   key={index}
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <img
+                  <Image
                     src={`https://minotar.net/avatar/${encodeURIComponent(playerName)}/32`}
                     alt={playerName}
+                    width={32}
+                    height={32}
                     className="size-8 rounded-md"
-                    onError={(e) => {
-                      // Fallback to Steve skin if player skin fails to load
-                      e.currentTarget.src = "https://minotar.net/avatar/Steve/32";
-                    }}
+                    unoptimized
                   />
                   <span className="text-sm font-medium">{playerName}</span>
                 </div>
