@@ -273,21 +273,21 @@ export function ServerConsole({ serverId, isRunning }: ServerConsoleProps) {
             </div>
           ) : players && players.players.length > 0 ? (
             <div className="space-y-2">
-              {players.players.map((player, index) => (
+              {players.players.map((playerName, index) => (
                 <div
                   key={index}
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                 >
                   <img
-                    src={`https://minotar.net/avatar/${encodeURIComponent(player.name || "Steve")}/32`}
-                    alt={player.name || "Unknown"}
+                    src={`https://minotar.net/avatar/${encodeURIComponent(playerName)}/32`}
+                    alt={playerName}
                     className="size-8 rounded-md"
                     onError={(e) => {
                       // Fallback to Steve skin if player skin fails to load
                       e.currentTarget.src = "https://minotar.net/avatar/Steve/32";
                     }}
                   />
-                  <span className="text-sm font-medium">{player.name || "Unknown"}</span>
+                  <span className="text-sm font-medium">{playerName}</span>
                 </div>
               ))}
             </div>

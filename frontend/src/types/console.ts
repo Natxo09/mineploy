@@ -12,12 +12,8 @@ export interface CommandResponse {
   success: boolean;
 }
 
-export interface Player {
-  name: string;
-}
-
 export interface PlayerListResponse {
   online_players: number;
   max_players: number;
-  players: Player[];
+  players: string[];
 }
