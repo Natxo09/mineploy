@@ -45,10 +45,10 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch initial container logs when component mounts (only from current session)
+  // Fetch initial container logs when component mounts (last 500 lines)
   const { data: initialLogs, isLoading: logsLoading } = useQuery({
     queryKey: ["container-logs", serverId],
-    queryFn: () => serverService.getServerLogsV2(serverId, 500, "docker", true), // docker = all container logs
+    queryFn: () => serverService.getServerLogsV2(serverId, 500, "docker", false), // Get last 500 lines
     enabled: isRunning && hasBeenStarted, // Only fetch when running and has been started
     refetchOnMount: true,
     refetchOnWindowFocus: false,
