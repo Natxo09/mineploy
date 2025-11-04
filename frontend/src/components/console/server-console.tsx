@@ -278,12 +278,16 @@ export function ServerConsole({ serverId, isRunning }: ServerConsoleProps) {
                   key={index}
                   className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
                 >
-                  <div className="size-8 rounded-full bg-primary/10 flex items-center justify-center">
-                    <span className="text-xs font-semibold">
-                      {player.name[0].toUpperCase()}
-                    </span>
-                  </div>
-                  <span className="text-sm font-medium">{player.name}</span>
+                  <img
+                    src={`https://minotar.net/avatar/${encodeURIComponent(player.name || "Steve")}/32`}
+                    alt={player.name || "Unknown"}
+                    className="size-8 rounded-md"
+                    onError={(e) => {
+                      // Fallback to Steve skin if player skin fails to load
+                      e.currentTarget.src = "https://minotar.net/avatar/Steve/32";
+                    }}
+                  />
+                  <span className="text-sm font-medium">{player.name || "Unknown"}</span>
                 </div>
               ))}
             </div>

@@ -105,14 +105,19 @@ class RconService:
         """
         try:
             response = await self.execute_command(host, port, password, "list")
+            print(f"🎮 [RCON] Player list response: {response}")
 
             # Parse response to extract player names
             # Format: "There are X of a max of Y players online: Player1, Player2, Player3"
             if ":" in response:
                 players_str = response.split(":", 1)[1].strip()
+                print(f"🎮 [RCON] Players string: '{players_str}'")
                 if players_str:
-                    return [p.strip() for p in players_str.split(",")]
+                    players = [p.strip() for p in players_str.split(",") if p.strip()]
+                    print(f"🎮 [RCON] Parsed players: {players}")
+                    return players
 
+            print(f"🎮 [RCON] No players found in response")
             return []
 
         except RconError as e:
