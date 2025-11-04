@@ -260,24 +260,40 @@ class ConnectionManager:
                 else:
                     # Stream from Docker logs
                     # Note: Docker logs API doesn't support true streaming with aiodocker
-                    # We'll poll every 2 seconds for new logs
-                    last_timestamp = None
+                    # We'll poll every 2 seconds for new logs using 'since' timestamp
+                    import time
+
+                    # Start from current time (only get new logs from now on)
+                    since_timestamp = int(time.time())
+                    sent_lines = set()  # Track sent lines to avoid duplicates
 
                     while True:
                         try:
-                            # Get recent logs
+                            # Get logs since last check
                             logs = await docker_service.get_container_logs(
                                 container_id,
-                                tail=50
+                                tail=100,  # Get more lines in case of burst
+                                since=since_timestamp
                             )
 
-                            # Filter and send logs
-                            if log_type == "container":
-                                logs = minecraft_logs_service.filter_docker_logs(logs)
+                            if logs.strip():
+                                # Filter and send logs
+                                if log_type == "container":
+                                    logs = minecraft_logs_service.filter_docker_logs(logs)
 
-                            for line in logs.split('\n'):
-                                if line.strip():
-                                    await self.broadcast_log_line(server_id, line, channel)
+                                for line in logs.split('\n'):
+                                    line = line.strip()
+                                    if line and line not in sent_lines:
+                                        await self.broadcast_log_line(server_id, line, channel)
+                                        sent_lines.add(line)
+
+                                        # Limit sent_lines size to prevent memory growth
+                                        if len(sent_lines) > 1000:
+                                            # Remove oldest half
+                                            sent_lines = set(list(sent_lines)[-500:])
+
+                                # Update timestamp for next iteration
+                                since_timestamp = int(time.time())
 
                             await asyncio.sleep(2)
 
