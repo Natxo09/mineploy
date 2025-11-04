@@ -15,6 +15,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ToggleGroup, ToggleGroupItem } from "@/components/ui/toggle-group";
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
+import { Separator } from "@/components/ui/separator";
 import { ServerCard } from "@/components/servers/server-card";
 import { ServerTable } from "@/components/servers/server-table";
 import { CreateServerDialog } from "@/components/servers/create-server-dialog";
@@ -43,13 +44,13 @@ export default function ServersPage() {
   return (
     <>
       {/* Header */}
-      <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-        <div>
-          <div className="flex items-center gap-3">
-            <Server className="size-8 text-muted-foreground" />
-            <h1 className="text-3xl font-bold tracking-tight">Servers</h1>
-          </div>
-          <p className="text-muted-foreground mt-1">
+      <div className="flex items-center justify-between">
+        <div className="space-y-1">
+          <h1 className="text-3xl font-bold tracking-tight flex items-center gap-2">
+            <Server className="size-8" />
+            Servers
+          </h1>
+          <p className="text-muted-foreground">
             Manage and monitor your Minecraft servers
           </p>
         </div>
@@ -58,6 +59,8 @@ export default function ServersPage() {
           New Server
         </Button>
       </div>
+
+      <Separator />
 
       {/* Filters and View Toggle */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
