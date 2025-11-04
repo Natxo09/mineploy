@@ -12,9 +12,10 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2 } from "lucide-react";
+import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2, Lightbulb } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+import { getCommandSuggestions } from "@/lib/minecraft-commands";
 
 type LogCategory = "docker" | "minecraft" | "rcon" | "unknown";
 
@@ -47,8 +48,12 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   const [autoScroll, setAutoScroll] = useState(true);
   const [showDocker, setShowDocker] = useState(true);
   const [showMinecraft, setShowMinecraft] = useState(true);
+  const [suggestions, setSuggestions] = useState<Array<{ type: "command" | "player"; text: string; detail: string }>>([]);
+  const [selectedSuggestion, setSelectedSuggestion] = useState(0);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const suggestionsRef = useRef<HTMLDivElement>(null);
   const queryClient = useQueryClient();
 
   // Categorize log line based on content
@@ -185,6 +190,54 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     }
   }, [consoleHistory, autoScroll]);
 
+  // Update suggestions when command input changes
+  useEffect(() => {
+    if (!commandInput || !isRunning) {
+      setShowSuggestions(false);
+      return;
+    }
+
+    // Get player names for autocomplete
+    const playerNames = players?.players || [];
+    const newSuggestions = getCommandSuggestions(commandInput, playerNames);
+
+    setSuggestions(newSuggestions);
+
+    // Set initial selection to first selectable item (skip syntax hints)
+    const firstSelectableIndex = newSuggestions.findIndex(
+      (s) => s.type !== "syntax" && s.completionText
+    );
+    setSelectedSuggestion(firstSelectableIndex >= 0 ? firstSelectableIndex : 0);
+
+    setShowSuggestions(newSuggestions.length > 0);
+  }, [commandInput, players, isRunning]);
+
+  // Apply a suggestion
+  const applySuggestion = (suggestion: typeof suggestions[0]) => {
+    // Syntax hints are not selectable
+    if (suggestion.type === "syntax" || !suggestion.completionText) {
+      return;
+    }
+
+    const parts = commandInput.trim().split(/\s+/);
+
+    if (suggestion.type === "command") {
+      // Replace first word with command name and add space
+      setCommandInput(suggestion.completionText + " ");
+    } else if (suggestion.type === "param") {
+      // Replace last word with parameter value and add space (more params expected)
+      parts[parts.length - 1] = suggestion.completionText;
+      setCommandInput(parts.join(" ") + " ");
+    } else if (suggestion.type === "player") {
+      // Replace last word with player name, NO space (usually last param)
+      parts[parts.length - 1] = suggestion.completionText;
+      setCommandInput(parts.join(" "));
+    }
+
+    setShowSuggestions(false);
+    inputRef.current?.focus();
+  };
+
   // Handle command submission
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -198,13 +251,68 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     // Execute command
     executeCommand.mutate(commandInput);
 
-    // Clear input
+    // Clear input and hide suggestions
     setCommandInput("");
+    setShowSuggestions(false);
   };
 
-  // Handle keyboard navigation through command history
+  // Handle keyboard navigation through command history and suggestions
   const handleKeyDown = (e: KeyboardEvent<HTMLInputElement>) => {
-    if (e.key === "ArrowUp") {
+    // Autocomplete navigation (when suggestions are visible)
+    if (showSuggestions && suggestions.length > 0) {
+      if (e.key === "ArrowDown") {
+        e.preventDefault();
+        // Skip syntax hints (non-selectable items)
+        let newIndex = selectedSuggestion;
+        do {
+          newIndex = newIndex < suggestions.length - 1 ? newIndex + 1 : 0;
+        } while (
+          suggestions[newIndex].type === "syntax" &&
+          newIndex !== selectedSuggestion
+        );
+        setSelectedSuggestion(newIndex);
+        return;
+      } else if (e.key === "ArrowUp") {
+        e.preventDefault();
+        // Skip syntax hints (non-selectable items)
+        let newIndex = selectedSuggestion;
+        do {
+          newIndex = newIndex > 0 ? newIndex - 1 : suggestions.length - 1;
+        } while (
+          suggestions[newIndex].type === "syntax" &&
+          newIndex !== selectedSuggestion
+        );
+        setSelectedSuggestion(newIndex);
+        return;
+      } else if (e.key === "Tab" || e.key === "Enter") {
+        if (e.key === "Enter" && !commandInput.trim()) return;
+
+        const currentSuggestion = suggestions[selectedSuggestion];
+
+        // Only apply if it's a selectable suggestion (not syntax hint)
+        if (currentSuggestion && currentSuggestion.type !== "syntax" && currentSuggestion.completionText) {
+          if (e.key === "Tab") {
+            e.preventDefault();
+            applySuggestion(currentSuggestion);
+            return;
+          }
+
+          // Enter with suggestion selected - apply it
+          if (selectedSuggestion >= 0 && selectedSuggestion < suggestions.length) {
+            e.preventDefault();
+            applySuggestion(currentSuggestion);
+            return;
+          }
+        }
+      } else if (e.key === "Escape") {
+        e.preventDefault();
+        setShowSuggestions(false);
+        return;
+      }
+    }
+
+    // Command history navigation (when no suggestions or different keys)
+    if (e.key === "ArrowUp" && !showSuggestions) {
       e.preventDefault();
       if (commandHistory.length === 0) return;
 
@@ -215,7 +323,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
 
       setHistoryIndex(newIndex);
       setCommandInput(commandHistory[newIndex]);
-    } else if (e.key === "ArrowDown") {
+    } else if (e.key === "ArrowDown" && !showSuggestions) {
       e.preventDefault();
       if (historyIndex === -1) return;
 
@@ -375,6 +483,74 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
           <div className="px-4 py-4 border-t flex-shrink-0">
             <form onSubmit={handleSubmit} className="flex gap-2">
               <div className="relative flex-1">
+                {/* Autocomplete suggestions dropdown */}
+                {showSuggestions && suggestions.length > 0 && (
+                  <div
+                    ref={suggestionsRef}
+                    className="absolute bottom-full left-0 right-0 mb-2 bg-popover border rounded-md shadow-lg max-h-64 overflow-auto z-50"
+                  >
+                    {suggestions.map((suggestion, index) => {
+                      const isSyntaxHint = suggestion.type === "syntax";
+                      const isSelectable = !isSyntaxHint && suggestion.completionText;
+
+                      return (
+                        <div
+                          key={index}
+                          className={cn(
+                            "px-3 py-2 border-b last:border-b-0 transition-colors",
+                            {
+                              "cursor-pointer hover:bg-accent": isSelectable,
+                              "bg-accent": index === selectedSuggestion && isSelectable,
+                              "bg-muted/50 cursor-default": isSyntaxHint,
+                            }
+                          )}
+                          onClick={() => isSelectable && applySuggestion(suggestion)}
+                          onMouseEnter={() => isSelectable && setSelectedSuggestion(index)}
+                        >
+                          <div className="flex items-start gap-2">
+                            <Lightbulb className={cn(
+                              "size-4 mt-0.5 flex-shrink-0",
+                              isSyntaxHint ? "text-yellow-500" : "text-muted-foreground"
+                            )} />
+                            <div className="flex-1 min-w-0">
+                              <div className={cn(
+                                "font-mono text-sm font-medium truncate",
+                                isSyntaxHint && "text-muted-foreground italic"
+                              )}>
+                                {suggestion.text}
+                              </div>
+                              <div className="text-xs text-muted-foreground truncate">
+                                {suggestion.detail}
+                              </div>
+                            </div>
+                            {suggestion.type === "player" && (
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
+                                Player
+                              </Badge>
+                            )}
+                            {suggestion.type === "param" && (
+                              <Badge variant="secondary" className="text-xs flex-shrink-0">
+                                Param
+                              </Badge>
+                            )}
+                            {isSyntaxHint && (
+                              <Badge variant="outline" className="text-xs flex-shrink-0">
+                                Syntax
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="px-3 py-1.5 bg-muted/50 text-xs text-muted-foreground border-t">
+                      <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Tab</kbd> or{" "}
+                      <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Enter</kbd> to select •{" "}
+                      <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">↑↓</kbd> to navigate •{" "}
+                      <kbd className="px-1.5 py-0.5 bg-background border rounded text-xs">Esc</kbd> to close
+                    </div>
+                  </div>
+                )}
+
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">
                   &gt;
                 </span>
@@ -386,7 +562,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
                   onKeyDown={handleKeyDown}
                   placeholder={
                     isRunning
-                      ? "Enter command... (use ↑↓ for history)"
+                      ? "Enter command... (Tab for autocomplete)"
                       : "Server must be running"
                   }
                   disabled={!isRunning || executeCommand.isPending}
@@ -407,7 +583,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
               </Button>
             </form>
             <p className="text-xs text-muted-foreground mt-2">
-              Tip: Use arrow keys to navigate command history
+              Tip: Press Tab for command suggestions, ↑↓ to navigate history
             </p>
           </div>
         </Card>
