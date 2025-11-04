@@ -138,7 +138,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     queryKey: ["players", serverId],
     queryFn: () => consoleService.getPlayers(serverId),
     enabled: isRunning,
-    refetchInterval: isRunning ? 5000 : false, // Refresh every 5s when running
+    refetchInterval: isRunning ? 5000 : false, // Refresh every 5s when running (Query Protocol = no log spam)
   });
 
   // Execute command mutation
