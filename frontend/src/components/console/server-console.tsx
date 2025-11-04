@@ -4,6 +4,8 @@ import { useState, useRef, useEffect, KeyboardEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { consoleService } from "@/services/console.service";
+import { serverService } from "@/services/server.service";
+import { useWebSocket } from "@/hooks/use-websocket";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card } from "@/components/ui/card";
@@ -15,7 +17,7 @@ import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
 interface ConsoleEntry {
-  type: "command" | "response" | "error" | "system";
+  type: "command" | "response" | "error" | "system" | "log";
   content: string;
   timestamp: Date;
 }
@@ -23,15 +25,16 @@ interface ConsoleEntry {
 interface ServerConsoleProps {
   serverId: number;
   isRunning: boolean;
+  hasBeenStarted?: boolean;
 }
 
-export function ServerConsole({ serverId, isRunning }: ServerConsoleProps) {
+export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: ServerConsoleProps) {
   const [commandInput, setCommandInput] = useState("");
   const [consoleHistory, setConsoleHistory] = useState<ConsoleEntry[]>([
     {
       type: "system",
       content: isRunning
-        ? "Connected to server. Type a command to get started."
+        ? "Connected to server. Streaming logs..."
         : "Server is not running. Start the server to use the console.",
       timestamp: new Date(),
     },
@@ -41,6 +44,56 @@ export function ServerConsole({ serverId, isRunning }: ServerConsoleProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Fetch initial Minecraft logs when component mounts
+  const { data: initialLogs, isLoading: logsLoading } = useQuery({
+    queryKey: ["minecraft-logs", serverId],
+    queryFn: () => serverService.getServerLogsV2(serverId, 500, "minecraft"),
+    enabled: isRunning && hasBeenStarted, // Only fetch when running and has been started
+    refetchOnMount: true,
+    refetchOnWindowFocus: false,
+  });
+
+  // Initialize consoleHistory with fetched Minecraft logs
+  useEffect(() => {
+    if (initialLogs?.logs) {
+      const systemMessage: ConsoleEntry = {
+        type: "system",
+        content: "Connected to server. Streaming logs...",
+        timestamp: new Date(),
+      };
+
+      const logEntries: ConsoleEntry[] = initialLogs.logs
+        .split("\n")
+        .map((line) => line.trim())
+        .filter((line) => line.length > 0)
+        .map((line) => ({
+          type: "log" as const,
+          content: line,
+          timestamp: new Date(),
+        }));
+
+      setConsoleHistory([systemMessage, ...logEntries]);
+    }
+  }, [initialLogs]);
+
+  // WebSocket for real-time Minecraft logs
+  const { connected, logLines } = useWebSocket({
+    serverId,
+    channel: "minecraft_logs",
+    enabled: isRunning && hasBeenStarted,
+    onLogLine: (line) => {
+      // Add server log to console
+      setConsoleHistory((prev) => [
+        ...prev,
+        {
+          type: "log",
+          content: line,
+          timestamp: new Date(),
+        },
+      ]);
+    },
+  });
 
   // Get online players
   const { data: players, refetch: refetchPlayers } = useQuery({
@@ -156,163 +209,175 @@ export function ServerConsole({ serverId, isRunning }: ServerConsoleProps) {
   };
 
   return (
-    <div className="grid gap-4 lg:grid-cols-4 h-[calc(100vh-20rem)]">
-      {/* Console Terminal */}
-      <Card className="lg:col-span-3 flex flex-col h-full py-0">
-        {/* Console Header */}
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center gap-2">
-            <Terminal className="size-4 text-muted-foreground" />
-            <h3 className="font-semibold">Console</h3>
-            {!isRunning && (
-              <Badge variant="outline" className="text-xs">
-                Server Offline
-              </Badge>
-            )}
-          </div>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setConsoleHistory([])}
-            disabled={!isRunning}
-          >
-            Clear
-          </Button>
-        </div>
-
-        {/* Console Output */}
-        <ScrollArea ref={scrollAreaRef} className="flex-1 p-4">
-          <div className="space-y-2 font-mono text-sm">
-            {consoleHistory.map((entry, index) => (
-              <div key={index} className="flex gap-2">
-                <span className="text-muted-foreground text-xs w-20 flex-shrink-0">
-                  {formatTime(entry.timestamp)}
-                </span>
-                <span
-                  className={cn("flex-1", {
-                    "text-blue-600 dark:text-blue-400": entry.type === "command",
-                    "text-foreground": entry.type === "response",
-                    "text-red-600 dark:text-red-400": entry.type === "error",
-                    "text-muted-foreground italic": entry.type === "system",
-                  })}
-                >
-                  {entry.content}
-                </span>
-              </div>
-            ))}
-            {executeCommand.isPending && (
-              <div className="flex items-center gap-2 text-muted-foreground">
-                <Loader2 className="size-3 animate-spin" />
-                <span className="text-sm">Executing command...</span>
-              </div>
-            )}
-          </div>
-        </ScrollArea>
-
-        {/* Console Input */}
-        <div className="p-4 border-t">
-          <form onSubmit={handleSubmit} className="flex gap-2">
-            <div className="relative flex-1">
-              <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">
-                &gt;
-              </span>
-              <Input
-                ref={inputRef}
-                type="text"
-                value={commandInput}
-                onChange={(e) => setCommandInput(e.target.value)}
-                onKeyDown={handleKeyDown}
-                placeholder={
-                  isRunning
-                    ? "Enter command... (use ↑↓ for history)"
-                    : "Server must be running"
-                }
-                disabled={!isRunning || executeCommand.isPending}
-                className="pl-8 font-mono"
-                autoComplete="off"
-              />
-            </div>
-            <Button
-              type="submit"
-              disabled={!isRunning || !commandInput.trim() || executeCommand.isPending}
-            >
-              {executeCommand.isPending ? (
-                <Loader2 className="animate-spin" />
-              ) : (
-                <Send />
-              )}
-              Send
-            </Button>
-          </form>
-          <p className="text-xs text-muted-foreground mt-2">
-            Tip: Use arrow keys to navigate command history
-          </p>
-        </div>
-      </Card>
-
-      {/* Players Sidebar */}
-      <Card className="h-full flex flex-col py-0">
-        <div className="p-4 border-b">
-          <div className="flex items-center justify-between">
+    <>
+      <div className="grid gap-4 lg:grid-cols-4 h-[calc(100vh-20rem)]">
+        {/* Console Terminal */}
+        <Card className="lg:col-span-3 flex flex-col h-full overflow-hidden py-0">
+          {/* Console Header */}
+          <div className="flex items-center justify-between px-4 h-12 border-b flex-shrink-0">
             <div className="flex items-center gap-2">
-              <Users className="size-4 text-muted-foreground" />
-              <h3 className="font-semibold">Players</h3>
+              <Terminal className="size-4 text-muted-foreground" />
+              <h3 className="font-semibold">Console</h3>
+              {!isRunning && (
+                <Badge variant="outline" className="text-xs">
+                  Server Offline
+                </Badge>
+              )}
+              {isRunning && connected && (
+                <Badge variant="outline" className="text-xs">
+                  <span className="size-2 rounded-full bg-green-500 mr-1.5 inline-block" />
+                  Live
+                </Badge>
+              )}
             </div>
-            <Badge variant="outline">
-              {players?.online_players ?? 0} / {players?.max_players ?? 20}
-            </Badge>
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConsoleHistory([])}
+                disabled={!isRunning}
+              >
+                Clear
+              </Button>
+            </div>
           </div>
-        </div>
 
-        <ScrollArea className="flex-1 p-4">
-          {!isRunning ? (
-            <div className="flex flex-col items-center justify-center h-full text-center gap-2">
-              <AlertCircle className="size-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">
-                Server is offline
-              </p>
-            </div>
-          ) : players && players.players.length > 0 ? (
-            <div className="space-y-2">
-              {players.players.map((playerName, index) => (
-                <div
-                  key={index}
-                  className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                >
-                  <Image
-                    src={`https://minotar.net/avatar/${encodeURIComponent(playerName)}/32`}
-                    alt={playerName}
-                    width={32}
-                    height={32}
-                    className="size-8 rounded-md"
-                    unoptimized
-                  />
-                  <span className="text-sm font-medium">{playerName}</span>
-                </div>
-              ))}
-            </div>
-          ) : (
-            <div className="flex flex-col items-center justify-center h-full text-center gap-2">
-              <Users className="size-8 text-muted-foreground" />
-              <p className="text-sm text-muted-foreground">No players online</p>
-            </div>
-          )}
-        </ScrollArea>
+          {/* Console Output */}
+          <div className="flex-1 overflow-hidden">
+            <ScrollArea ref={scrollAreaRef} className="h-full">
+              <div className="space-y-2 font-mono text-sm p-4">
+                {consoleHistory.map((entry, index) => (
+                  <div key={index} className="flex gap-2">
+                    <span className="text-muted-foreground text-xs w-20 flex-shrink-0">
+                      {formatTime(entry.timestamp)}
+                    </span>
+                    <span
+                      className={cn("flex-1 break-all", {
+                        "text-blue-600 dark:text-blue-400": entry.type === "command",
+                        "text-foreground": entry.type === "response" || entry.type === "log",
+                        "text-red-600 dark:text-red-400": entry.type === "error",
+                        "text-muted-foreground italic": entry.type === "system",
+                      })}
+                    >
+                      {entry.content}
+                    </span>
+                  </div>
+                ))}
+                {executeCommand.isPending && (
+                  <div className="flex items-center gap-2 text-muted-foreground">
+                    <Loader2 className="size-3 animate-spin" />
+                    <span className="text-sm">Executing command...</span>
+                  </div>
+                )}
+              </div>
+            </ScrollArea>
+          </div>
 
-        <Separator />
+          {/* Console Input */}
+          <div className="px-4 py-4 border-t flex-shrink-0">
+            <form onSubmit={handleSubmit} className="flex gap-2">
+              <div className="relative flex-1">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground font-mono">
+                  &gt;
+                </span>
+                <Input
+                  ref={inputRef}
+                  type="text"
+                  value={commandInput}
+                  onChange={(e) => setCommandInput(e.target.value)}
+                  onKeyDown={handleKeyDown}
+                  placeholder={
+                    isRunning
+                      ? "Enter command... (use ↑↓ for history)"
+                      : "Server must be running"
+                  }
+                  disabled={!isRunning || executeCommand.isPending}
+                  className="pl-8 font-mono"
+                  autoComplete="off"
+                />
+              </div>
+              <Button
+                type="submit"
+                disabled={!isRunning || !commandInput.trim() || executeCommand.isPending}
+              >
+                {executeCommand.isPending ? (
+                  <Loader2 className="animate-spin" />
+                ) : (
+                  <Send />
+                )}
+                Send
+              </Button>
+            </form>
+            <p className="text-xs text-muted-foreground mt-2">
+              Tip: Use arrow keys to navigate command history
+            </p>
+          </div>
+        </Card>
 
-        <div className="p-4">
-          <Button
-            variant="outline"
-            size="sm"
-            className="w-full"
-            onClick={() => refetchPlayers()}
-            disabled={!isRunning}
-          >
-            Refresh Players
-          </Button>
-        </div>
-      </Card>
-    </div>
+        {/* Players Sidebar */}
+        <Card className="h-full flex flex-col py-0">
+          <div className="p-4 border-b">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Users className="size-4 text-muted-foreground" />
+                <h3 className="font-semibold">Players</h3>
+              </div>
+              <Badge variant="outline">
+                {players?.online_players ?? 0} / {players?.max_players ?? 20}
+              </Badge>
+            </div>
+          </div>
+
+          <ScrollArea className="flex-1 p-4">
+            {!isRunning ? (
+              <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+                <AlertCircle className="size-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">
+                  Server is offline
+                </p>
+              </div>
+            ) : players && players.players.length > 0 ? (
+              <div className="space-y-2">
+                {players.players.map((playerName, index) => (
+                  <div
+                    key={index}
+                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
+                  >
+                    <Image
+                      src={`https://minotar.net/avatar/${encodeURIComponent(playerName)}/32`}
+                      alt={playerName}
+                      width={32}
+                      height={32}
+                      className="size-8 rounded-md"
+                      unoptimized
+                    />
+                    <span className="text-sm font-medium">{playerName}</span>
+                  </div>
+                ))}
+              </div>
+            ) : (
+              <div className="flex flex-col items-center justify-center h-full text-center gap-2">
+                <Users className="size-8 text-muted-foreground" />
+                <p className="text-sm text-muted-foreground">No players online</p>
+              </div>
+            )}
+          </ScrollArea>
+
+          <Separator />
+
+          <div className="p-4">
+            <Button
+              variant="outline"
+              size="sm"
+              className="w-full"
+              onClick={() => refetchPlayers()}
+              disabled={!isRunning}
+            >
+              Refresh Players
+            </Button>
+          </div>
+        </Card>
+      </div>
+    </>
   );
 }

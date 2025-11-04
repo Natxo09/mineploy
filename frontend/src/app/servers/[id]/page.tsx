@@ -193,7 +193,7 @@ export default function ServerDetailPage() {
             <Terminal className="size-4" />
             Console
           </TabsTrigger>
-          <TabsTrigger value="logs">
+          <TabsTrigger value="logs" disabled={!server.has_been_started}>
             <FileText className="size-4" />
             Logs
           </TabsTrigger>
@@ -219,11 +219,15 @@ export default function ServerDetailPage() {
           <ServerConsole
             serverId={serverId}
             isRunning={server.status === "running"}
+            hasBeenStarted={server.has_been_started}
           />
         </TabsContent>
 
         <TabsContent value="logs" className="space-y-4">
-          <ServerLogs serverId={serverId} />
+          <ServerLogs
+            serverId={serverId}
+            isRunning={server.status === "running"}
+          />
         </TabsContent>
 
         <TabsContent value="stats" className="space-y-4">

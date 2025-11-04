@@ -6,6 +6,8 @@ import type {
   ServerLogs,
   CreateServerRequest,
   UpdateServerRequest,
+  LogsResponse,
+  LogFilterType,
 } from "@/types";
 
 /**
@@ -85,10 +87,30 @@ export const serverService = {
 
   /**
    * Get server container logs
+   * @deprecated Use getServerLogsV2 for filtering support
    */
   async getServerLogs(id: number, tail: number = 500): Promise<ServerLogs> {
     const response = await apiClient.get<ServerLogs>(
       `/servers/${id}/logs?tail=${tail}`
+    );
+    return response.data;
+  },
+
+  /**
+   * Get server container logs with filtering support
+   */
+  async getServerLogsV2(
+    id: number,
+    tail: number = 500,
+    filterType?: LogFilterType
+  ): Promise<LogsResponse> {
+    const params = new URLSearchParams({ tail: tail.toString() });
+    if (filterType) {
+      params.append("filter_type", filterType);
+    }
+
+    const response = await apiClient.get<LogsResponse>(
+      `/servers/${id}/logs?${params.toString()}`
     );
     return response.data;
   },
