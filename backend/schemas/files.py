@@ -22,6 +22,8 @@ class FileInfo(BaseModel):
     size: int = Field(0, description="File size in bytes (0 for directories)")
     modified: Optional[datetime] = Field(None, description="Last modified timestamp")
     is_editable: bool = Field(False, description="Whether file can be edited in browser")
+    is_deletable: bool = Field(True, description="Whether file can be deleted")
+    is_renamable: bool = Field(True, description="Whether file can be renamed")
     extension: Optional[str] = Field(None, description="File extension without dot")
 
     class Config:

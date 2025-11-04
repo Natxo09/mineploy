@@ -24,6 +24,7 @@ import { ServerConsole } from "@/components/console/server-console";
 import { ServerStatsCharts } from "@/components/servers/server-stats-charts";
 import { ServerSettings } from "@/components/servers/server-settings";
 import { ServerPlayers } from "@/components/servers/server-players";
+import { ServerFiles } from "@/components/servers/server-files";
 
 const statusConfig: Record<
   ServerStatus,
@@ -200,7 +201,7 @@ export default function ServerDetailPage() {
             <Users className="size-4" />
             Players
           </TabsTrigger>
-          <TabsTrigger value="files" disabled>
+          <TabsTrigger value="files">
             <FolderOpen className="size-4" />
             Files
           </TabsTrigger>
@@ -228,6 +229,13 @@ export default function ServerDetailPage() {
 
         <TabsContent value="players" className="space-y-4">
           <ServerPlayers
+            serverId={serverId}
+            isRunning={server.status === "running"}
+          />
+        </TabsContent>
+
+        <TabsContent value="files" className="space-y-4">
+          <ServerFiles
             serverId={serverId}
             isRunning={server.status === "running"}
           />

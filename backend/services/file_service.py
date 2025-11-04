@@ -130,28 +130,21 @@ class FileService:
         await self.connect()
 
         try:
-            print(f"[DEBUG] list_files called with container_id={container_id}, path={path}")
-
             # Sanitize path
             path = self._sanitize_path(path)
-            print(f"[DEBUG] Sanitized path: {path}")
 
             # Build full container path
             container_path = f"/data{path}"
-            print(f"[DEBUG] Container path: {container_path}")
 
             container = self.docker.containers.container(container_id)
-            print(f"[DEBUG] Got container object")
 
             # Get directory as tar archive
             # This works even if container is stopped
             tar_stream = await container.get_archive(container_path)
-            print(f"[DEBUG] Got tar stream, type: {type(tar_stream)}")
 
             # Check if it's already a TarFile object or raw bytes
             if isinstance(tar_stream, tarfile.TarFile):
                 tar_file = tar_stream
-                print(f"[DEBUG] Using TarFile object directly")
             else:
                 # Read tar data if it's bytes or a stream
                 if hasattr(tar_stream, 'read'):
@@ -159,51 +152,38 @@ class FileService:
                 else:
                     tar_data = tar_stream
 
-                print(f"[DEBUG] Tar data size: {len(tar_data)} bytes")
-
                 # Open tar file
                 tar_file = tarfile.open(fileobj=io.BytesIO(tar_data))
-                print(f"[DEBUG] Opened tar file from bytes")
 
             files = []
             tar_members = tar_file.getmembers()
-            print(f"[DEBUG] Total tar members: {len(tar_members)}")
 
             # Docker returns tar with the last component of the path as root
             # For /data/ -> returns 'data/' as root
             # For /data/world -> returns 'world/' as root
             base_dir_name = os.path.basename(container_path.rstrip('/'))
-            print(f"[DEBUG] Base dir name: '{base_dir_name}'")
 
             # Build expected prefix for tar members
             expected_prefix = base_dir_name + '/'
-            print(f"[DEBUG] Expected prefix: '{expected_prefix}'")
 
-            for idx, member in enumerate(tar_members):
-                print(f"[DEBUG] Member {idx}: name={member.name}, type={member.type}, size={member.size}")
-
+            for member in tar_members:
                 # Skip the base directory itself
                 if member.name == base_dir_name:
-                    print(f"[DEBUG] Skipping base directory itself")
                     continue
 
                 # Check if member is directly under the base directory
                 if not member.name.startswith(expected_prefix):
-                    print(f"[DEBUG] Skipping - doesn't start with expected prefix")
                     continue
 
                 # Get relative name (remove base directory prefix)
                 relative_name = member.name[len(expected_prefix):]
-                print(f"[DEBUG] Relative name: '{relative_name}'")
 
                 # Skip if empty (shouldn't happen but just in case)
                 if not relative_name:
-                    print(f"[DEBUG] Skipping - empty relative name")
                     continue
 
                 # Skip if contains / (means it's in a subdirectory, not directly under current path)
                 if '/' in relative_name:
-                    print(f"[DEBUG] Skipping subdirectory item: {relative_name}")
                     continue
 
                 name = relative_name
@@ -227,7 +207,8 @@ class FileService:
                 else:
                     file_path = f"{path}/{name}"
 
-                print(f"[DEBUG] Adding file - name={name}, type={file_type}, size={size}")
+                # Check if file/folder is protected
+                is_restricted = self._is_restricted_path(file_path)
 
                 files.append(FileInfo(
                     name=name,
@@ -236,11 +217,12 @@ class FileService:
                     size=size,
                     modified=modified,
                     is_editable=self._is_editable(file_path) if not is_directory else False,
+                    is_deletable=not is_restricted,
+                    is_renamable=not is_restricted,
                     extension=self._get_extension(name) if not is_directory else None,
                 ))
 
             tar_file.close()
-            print(f"[DEBUG] Total files found: {len(files)}")
 
             # Sort: directories first, then files alphabetically
             files.sort(key=lambda f: (f.type == FileType.FILE, f.name.lower()))

@@ -9,6 +9,7 @@ export * from "./console";
 export * from "./settings";
 export * from "./properties";
 export * from "./docker";
+export * from "./files";
 
 /**
  * Log and WebSocket streaming types

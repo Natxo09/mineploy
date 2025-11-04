@@ -97,30 +97,15 @@ async def list_files(
 
     Requires FILES permission.
     """
-    print(f"[DEBUG API] list_files endpoint called - server_id={server_id}, path={path}, user={current_user.username}")
+    server = await _get_server_with_permission(
+        server_id=server_id,
+        user=current_user,
+        required_permission=ServerPermission.FILES,
+        db=db,
+    )
 
     try:
-        server = await _get_server_with_permission(
-            server_id=server_id,
-            user=current_user,
-            required_permission=ServerPermission.FILES,
-            db=db,
-        )
-        print(f"[DEBUG API] Got server with permission - server.id={server.id}, container_id={server.container_id}")
-
-    except HTTPException as e:
-        print(f"[ERROR API] Permission check failed: {e.detail}")
-        raise
-    except Exception as e:
-        print(f"[ERROR API] Unexpected error in permission check: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
-        raise
-
-    try:
-        print(f"[DEBUG API] Calling file_service.list_files with container_id={server.container_id}, path={path}")
         files = await file_service.list_files(server.container_id, path)
-        print(f"[DEBUG API] file_service.list_files returned {len(files)} files")
 
         return FileListResponse(
             path=path,
@@ -129,21 +114,16 @@ async def list_files(
         )
 
     except FileNotFoundError as e:
-        print(f"[ERROR API] FileNotFoundError: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail=str(e),
         )
     except ValueError as e:
-        print(f"[ERROR API] ValueError: {str(e)}")
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail=str(e),
         )
     except Exception as e:
-        print(f"[ERROR API] Unexpected error: {type(e).__name__}: {str(e)}")
-        import traceback
-        traceback.print_exc()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to list files: {str(e)}",
