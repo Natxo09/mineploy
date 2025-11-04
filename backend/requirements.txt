@@ -18,6 +18,9 @@ aiomysql==0.3.2
 # Minecraft RCON
 mcrcon==0.7.0
 
+# Minecraft Query Protocol
+mcstatus==12.0.6
+
 # Authentication & Security
 python-jose[cryptography]==3.5.0
 passlib[bcrypt]==1.7.4

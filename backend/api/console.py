@@ -13,9 +13,30 @@ from models.server import Server, ServerStatus
 from models.user_server_permission import ServerPermission
 from schemas.console import CommandRequest, CommandResponse, PlayerListResponse
 from services.rcon_service import rcon_service
+from services.query_service import query_service
 from services.permission_service import PermissionService
+from services.server_properties_service import server_properties_service
 
 router = APIRouter()
+
+
+async def _get_max_players(container_name: str) -> int:
+    """
+    Get max_players from server.properties file.
+    Falls back to 20 if unable to read.
+
+    Args:
+        container_name: Docker container name
+
+    Returns:
+        Maximum number of players configured
+    """
+    try:
+        properties = await server_properties_service.get_properties(container_name)
+        return properties.max_players
+    except Exception as e:
+        print(f"⚠️  Failed to read max_players from server.properties: {e}")
+        return 20  # Fallback to default
 
 
 @router.post("/{server_id}/command", response_model=CommandResponse)
@@ -111,38 +132,35 @@ async def get_players(
 
     # Check if server is running
     if server.status != ServerStatus.RUNNING:
+        # Read max_players from server.properties instead of hardcoding
+        max_players = await _get_max_players(server.container_name)
         return PlayerListResponse(
             online_players=0,
-            max_players=20,
+            max_players=max_players,
             players=[],
         )
 
     try:
-        # Get player count and list
+        # Get player count and list via Query Protocol (no log spam!)
         # Use container name instead of localhost when backend is in Docker
-        player_count = await rcon_service.get_player_count(
+        stats = await query_service.get_full_stats(
             host=server.container_name,
-            port=server.rcon_port,
-            password=server.rcon_password,
-        )
-
-        player_list = await rcon_service.get_online_players(
-            host=server.container_name,
-            port=server.rcon_port,
-            password=server.rcon_password,
+            port=server.query_port,
         )
 
         return PlayerListResponse(
-            online_players=player_count["online_players"],
-            max_players=player_count["max_players"],
-            players=player_list,
+            online_players=stats["online_players"],
+            max_players=stats["max_players"],
+            players=stats["players"],
         )
 
     except Exception as e:
-        # Return empty list if RCON fails
+        # Return empty list if Query fails
         print(f"⚠️  Failed to get players for server {server_id}: {e}")
+        # Read max_players from server.properties instead of hardcoding
+        max_players = await _get_max_players(server.container_name)
         return PlayerListResponse(
             online_players=0,
-            max_players=20,
+            max_players=max_players,
             players=[],
         )

@@ -12,7 +12,38 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2, Lightbulb } from "lucide-react";
+import {
+  ContextMenu,
+  ContextMenuContent,
+  ContextMenuItem,
+  ContextMenuSeparator,
+  ContextMenuTrigger,
+} from "@/components/ui/context-menu";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2, Lightbulb, Crown, UserX, Ban, Shield, MessageSquare, ShieldOff, UserCog, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getCommandSuggestions } from "@/lib/minecraft-commands";
@@ -51,6 +82,17 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   const [suggestions, setSuggestions] = useState<Array<{ type: "command" | "player"; text: string; detail: string }>>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
+
+  // Player action dialogs
+  const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
+  const [kickDialogOpen, setKickDialogOpen] = useState(false);
+  const [banDialogOpen, setBanDialogOpen] = useState(false);
+  const [messageDialogOpen, setMessageDialogOpen] = useState(false);
+  const [confirmOpDialogOpen, setConfirmOpDialogOpen] = useState(false);
+  const [kickReason, setKickReason] = useState("");
+  const [banReason, setBanReason] = useState("");
+  const [privateMessage, setPrivateMessage] = useState("");
+
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const suggestionsRef = useRef<HTMLDivElement>(null);
@@ -138,7 +180,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     queryKey: ["players", serverId],
     queryFn: () => consoleService.getPlayers(serverId),
     enabled: isRunning,
-    refetchInterval: isRunning ? 5000 : false, // Refresh every 5s when running
+    refetchInterval: isRunning ? 5000 : false, // Refresh every 5s when running (Query Protocol = no log spam)
   });
 
   // Execute command mutation
@@ -177,6 +219,86 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
       });
     },
   });
+
+  // Player action handlers
+  const handleMakeOp = (playerName: string) => {
+    setSelectedPlayer(playerName);
+    setConfirmOpDialogOpen(true);
+  };
+
+  const confirmMakeOp = () => {
+    if (!selectedPlayer) return;
+    executeCommand.mutate(`op ${selectedPlayer}`);
+    toast.success(`${selectedPlayer} is now an operator`);
+    setConfirmOpDialogOpen(false);
+    setSelectedPlayer(null);
+  };
+
+  const handleRemoveOp = (playerName: string) => {
+    executeCommand.mutate(`deop ${playerName}`);
+    toast.success(`Removed operator status from ${playerName}`);
+  };
+
+  const handleKick = (playerName: string) => {
+    setSelectedPlayer(playerName);
+    setKickReason("");
+    setKickDialogOpen(true);
+  };
+
+  const confirmKick = () => {
+    if (!selectedPlayer) return;
+    const command = kickReason.trim()
+      ? `kick ${selectedPlayer} ${kickReason}`
+      : `kick ${selectedPlayer}`;
+    executeCommand.mutate(command);
+    toast.success(`Kicked ${selectedPlayer}`);
+    setKickDialogOpen(false);
+    setSelectedPlayer(null);
+    setKickReason("");
+  };
+
+  const handleBan = (playerName: string) => {
+    setSelectedPlayer(playerName);
+    setBanReason("");
+    setBanDialogOpen(true);
+  };
+
+  const confirmBan = () => {
+    if (!selectedPlayer) return;
+    const command = banReason.trim()
+      ? `ban ${selectedPlayer} ${banReason}`
+      : `ban ${selectedPlayer}`;
+    executeCommand.mutate(command);
+    toast.success(`Banned ${selectedPlayer}`);
+    setBanDialogOpen(false);
+    setSelectedPlayer(null);
+    setBanReason("");
+  };
+
+  const handleWhitelistAdd = (playerName: string) => {
+    executeCommand.mutate(`whitelist add ${playerName}`);
+    toast.success(`Added ${playerName} to whitelist`);
+  };
+
+  const handleWhitelistRemove = (playerName: string) => {
+    executeCommand.mutate(`whitelist remove ${playerName}`);
+    toast.success(`Removed ${playerName} from whitelist`);
+  };
+
+  const handleSendMessage = (playerName: string) => {
+    setSelectedPlayer(playerName);
+    setPrivateMessage("");
+    setMessageDialogOpen(true);
+  };
+
+  const confirmSendMessage = () => {
+    if (!selectedPlayer || !privateMessage.trim()) return;
+    executeCommand.mutate(`tell ${selectedPlayer} ${privateMessage}`);
+    toast.success(`Message sent to ${selectedPlayer}`);
+    setMessageDialogOpen(false);
+    setSelectedPlayer(null);
+    setPrivateMessage("");
+  };
 
   // Auto-scroll to bottom when new entries are added (only if enabled)
   useEffect(() => {
@@ -595,6 +717,18 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
               <div className="flex items-center gap-2">
                 <Users className="size-4 text-muted-foreground" />
                 <h3 className="font-semibold">Players</h3>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="size-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p className="text-xs">
+                        Right-click on any player to access actions: OP, kick, ban, whitelist, and more.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
               <Badge variant="outline">
                 {players?.online_players ?? 0} / {players?.max_players ?? 20}
@@ -613,20 +747,62 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
             ) : players && players.players.length > 0 ? (
               <div className="space-y-2">
                 {players.players.map((playerName, index) => (
-                  <div
-                    key={index}
-                    className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors"
-                  >
-                    <Image
-                      src={`https://minotar.net/avatar/${encodeURIComponent(playerName)}/32`}
-                      alt={playerName}
-                      width={32}
-                      height={32}
-                      className="size-8 rounded-md"
-                      unoptimized
-                    />
-                    <span className="text-sm font-medium">{playerName}</span>
-                  </div>
+                  <ContextMenu key={index}>
+                    <ContextMenuTrigger asChild>
+                      <div
+                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer border border-transparent hover:border-border group"
+                        role="button"
+                        tabIndex={0}
+                      >
+                        <Image
+                          src={`https://minotar.net/avatar/${encodeURIComponent(playerName)}/32`}
+                          alt={playerName}
+                          width={32}
+                          height={32}
+                          className="size-8 rounded-md ring-2 ring-transparent group-hover:ring-primary/20 transition-all"
+                          unoptimized
+                        />
+                        <span className="text-sm font-medium flex-1">{playerName}</span>
+                        <UserCog className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </div>
+                    </ContextMenuTrigger>
+                    <ContextMenuContent>
+                      <ContextMenuItem onClick={() => handleMakeOp(playerName)}>
+                        <Crown className="size-4 mr-2" />
+                        Make Operator
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handleRemoveOp(playerName)}>
+                        <UserCog className="size-4 mr-2" />
+                        Remove Operator
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => handleKick(playerName)}>
+                        <UserX className="size-4 mr-2" />
+                        Kick Player
+                      </ContextMenuItem>
+                      <ContextMenuItem
+                        className="text-destructive focus:text-destructive"
+                        onClick={() => handleBan(playerName)}
+                      >
+                        <Ban className="size-4 mr-2" />
+                        Ban Player
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => handleWhitelistAdd(playerName)}>
+                        <Shield className="size-4 mr-2" />
+                        Add to Whitelist
+                      </ContextMenuItem>
+                      <ContextMenuItem onClick={() => handleWhitelistRemove(playerName)}>
+                        <ShieldOff className="size-4 mr-2" />
+                        Remove from Whitelist
+                      </ContextMenuItem>
+                      <ContextMenuSeparator />
+                      <ContextMenuItem onClick={() => handleSendMessage(playerName)}>
+                        <MessageSquare className="size-4 mr-2" />
+                        Send Private Message
+                      </ContextMenuItem>
+                    </ContextMenuContent>
+                  </ContextMenu>
                 ))}
               </div>
             ) : (
@@ -652,6 +828,107 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
           </div>
         </Card>
       </div>
+
+      {/* Kick Dialog */}
+      <Dialog open={kickDialogOpen} onOpenChange={setKickDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Kick Player</DialogTitle>
+            <DialogDescription>
+              Kick {selectedPlayer} from the server. You can optionally provide a reason.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Reason (optional)"
+            value={kickReason}
+            onChange={(e) => setKickReason(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmKick();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setKickDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmKick}>Kick Player</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Ban Dialog */}
+      <Dialog open={banDialogOpen} onOpenChange={setBanDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Ban Player</DialogTitle>
+            <DialogDescription>
+              Permanently ban {selectedPlayer} from the server. You can optionally provide a reason.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Reason (optional)"
+            value={banReason}
+            onChange={(e) => setBanReason(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmBan();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setBanDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmBan}>
+              Ban Player
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Send Message Dialog */}
+      <Dialog open={messageDialogOpen} onOpenChange={setMessageDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Send Private Message</DialogTitle>
+            <DialogDescription>
+              Send a private message to {selectedPlayer}.
+            </DialogDescription>
+          </DialogHeader>
+          <Input
+            placeholder="Type your message..."
+            value={privateMessage}
+            onChange={(e) => setPrivateMessage(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") confirmSendMessage();
+            }}
+          />
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setMessageDialogOpen(false)}>
+              Cancel
+            </Button>
+            <Button onClick={confirmSendMessage} disabled={!privateMessage.trim()}>
+              Send Message
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* OP Confirmation Dialog */}
+      <AlertDialog open={confirmOpDialogOpen} onOpenChange={setConfirmOpDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Make Operator</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to make {selectedPlayer} a server operator?
+              Operators have full control over the server.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel>Cancel</AlertDialogCancel>
+            <AlertDialogAction onClick={confirmMakeOp}>
+              Make Operator
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </>
   );
 }

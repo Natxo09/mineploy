@@ -33,8 +33,14 @@ class ServerCreate(ServerBase):
         le=65535,
         description="RCON port (auto-assigned if not provided)"
     )
+    query_port: Optional[int] = Field(
+        None,
+        ge=1024,
+        le=65535,
+        description="Query port (auto-assigned if not provided)"
+    )
 
-    @field_validator('port', 'rcon_port')
+    @field_validator('port', 'rcon_port', 'query_port')
     @classmethod
     def validate_ports(cls, v):
         if v is not None and (v < 1024 or v > 65535):
@@ -56,6 +62,7 @@ class ServerResponse(ServerBase):
     id: int
     port: int
     rcon_port: int
+    query_port: int
     container_id: Optional[str] = None
     container_name: str
     status: ServerStatus

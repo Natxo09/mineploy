@@ -47,7 +47,7 @@ export function useServerStats(id: number, options?: { enabled?: boolean }) {
     queryKey: serverKeys.stats(id),
     queryFn: () => serverService.getServerStats(id),
     enabled: options?.enabled ?? true,
-    refetchInterval: 5000, // Refresh every 5 seconds
+    refetchInterval: 15000, // Refresh every 15 seconds (CPU/RAM change frequently)
     staleTime: 0, // Always consider stale for real-time updates
   });
 }

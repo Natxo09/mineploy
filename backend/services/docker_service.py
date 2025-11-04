@@ -94,6 +94,7 @@ class DockerService:
         port: int,
         rcon_port: int,
         rcon_password: str,
+        query_port: int,
         memory_mb: int = 2048,
         timezone: str | None = None,
     ) -> tuple[str, Dict[str, Any]]:
@@ -107,6 +108,7 @@ class DockerService:
             port: Server port
             rcon_port: RCON port
             rcon_password: RCON password
+            query_port: Query Protocol port (UDP)
             memory_mb: Memory limit in MB
             timezone: Timezone for the container (e.g., Europe/Madrid)
 
@@ -130,6 +132,8 @@ class DockerService:
             "ENABLE_RCON=TRUE",
             f"RCON_PORT={rcon_port}",
             f"RCON_PASSWORD={rcon_password}",
+            "ENABLE_QUERY=TRUE",  # Enable Query Protocol
+            f"QUERY_PORT={query_port}",  # Query port (internal)
             "ONLINE_MODE=TRUE",
             "SERVER_PORT=25565",  # Internal port (always 25565 inside container)
             f"TZ={tz}",  # Set container timezone
@@ -143,11 +147,13 @@ class DockerService:
             "ExposedPorts": {
                 f"{25565}/tcp": {},  # Minecraft port
                 f"{rcon_port}/tcp": {},  # RCON port
+                f"{query_port}/udp": {},  # Query port (UDP!)
             },
             "HostConfig": {
                 "PortBindings": {
                     f"{25565}/tcp": [{"HostPort": str(port)}],
                     f"{rcon_port}/tcp": [{"HostPort": str(rcon_port)}],
+                    f"{query_port}/udp": [{"HostPort": str(query_port)}],  # Query port (UDP!)
                 },
                 "Memory": memory_mb * 1024 * 1024,  # Convert MB to bytes
                 "NetworkMode": "minecraft_network",  # Use dedicated network
