@@ -715,8 +715,9 @@ async def get_server_stats(
         # Get player data via RCON
         try:
             print(f"📊 [STATS] Getting player count for server {server_id} via RCON (port: {server.rcon_port})")
+            # Use container name instead of localhost when backend is in Docker
             player_data = await rcon_service.get_player_count(
-                host="localhost",  # Container is on same host
+                host=server.container_name,
                 port=server.rcon_port,
                 password=server.rcon_password,
             )

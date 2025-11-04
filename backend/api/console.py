@@ -59,9 +59,10 @@ async def execute_command(
 
     try:
         # Execute command via RCON
+        # Use container name instead of localhost when backend is in Docker
         print(f"📝 [CONSOLE] Executing command '{command_data.command}' on server {server_id}")
         response = await rcon_service.execute_command(
-            host="localhost",
+            host=server.container_name,
             port=server.rcon_port,
             password=server.rcon_password,
             command=command_data.command,
@@ -121,14 +122,15 @@ async def get_players(
 
     try:
         # Get player count and list
+        # Use container name instead of localhost when backend is in Docker
         player_count = await rcon_service.get_player_count(
-            host="localhost",
+            host=server.container_name,
             port=server.rcon_port,
             password=server.rcon_password,
         )
 
         player_list = await rcon_service.get_online_players(
-            host="localhost",
+            host=server.container_name,
             port=server.rcon_port,
             password=server.rcon_password,
         )
