@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, KeyboardEvent } from "react";
+import { useState, useRef, useEffect, useCallback, KeyboardEvent } from "react";
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import Image from "next/image";
 import { consoleService } from "@/services/console.service";
@@ -12,14 +12,17 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine } from "lucide-react";
+import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2, Cable } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
+
+type LogCategory = "docker" | "minecraft" | "rcon" | "unknown";
 
 interface ConsoleEntry {
   type: "command" | "response" | "error" | "system" | "log";
   content: string;
   timestamp: Date;
+  category?: LogCategory; // For log entries only
 }
 
 interface ServerConsoleProps {
@@ -42,9 +45,37 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const [autoScroll, setAutoScroll] = useState(true);
+  const [showDocker, setShowDocker] = useState(true);
+  const [showMinecraft, setShowMinecraft] = useState(true);
+  const [showRcon, setShowRcon] = useState(false); // Hidden by default
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
+
+  // Categorize log line based on content
+  const categorizeLog = useCallback((line: string): LogCategory => {
+    // RCON logs (highest priority to detect spam)
+    if (line.includes("RCON Listener") || line.includes("RCON Client")) {
+      return "rcon";
+    }
+
+    // Docker/Init logs
+    if (
+      line.startsWith("[init]") ||
+      line.includes("mc-server-runner") ||
+      line.includes("mc-image-helper") ||
+      /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}/.test(line) // ISO timestamp
+    ) {
+      return "docker";
+    }
+
+    // Minecraft logs (standard format: [HH:MM:SS] [Thread/LEVEL]:)
+    if (/^\[\d{2}:\d{2}:\d{2}\]/.test(line)) {
+      return "minecraft";
+    }
+
+    return "unknown";
+  }, []);
 
   // Fetch initial container logs when component mounts (last 500 lines)
   const { data: initialLogs, isLoading: logsLoading } = useQuery({
@@ -72,11 +103,12 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
           type: "log" as const,
           content: line,
           timestamp: new Date(),
+          category: categorizeLog(line),
         }));
 
       setConsoleHistory([systemMessage, ...logEntries]);
     }
-  }, [initialLogs]);
+  }, [initialLogs, categorizeLog]);
 
   // WebSocket for real-time container logs
   const { connected, logLines } = useWebSocket({
@@ -84,13 +116,14 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     channel: "container_logs", // All container logs
     enabled: isRunning && hasBeenStarted,
     onLogLine: (line) => {
-      // Add container log to console
+      // Add container log to console with category
       setConsoleHistory((prev) => [
         ...prev,
         {
           type: "log",
           content: line,
           timestamp: new Date(),
+          category: categorizeLog(line),
         },
       ]);
     },
@@ -209,45 +242,108 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     });
   };
 
+  // Filter console history based on selected filters
+  const filteredHistory = consoleHistory.filter((entry) => {
+    // Always show non-log entries (commands, errors, system messages)
+    if (entry.type !== "log") return true;
+
+    // Filter logs by category
+    const category = entry.category || "unknown";
+    if (category === "docker" && !showDocker) return false;
+    if (category === "minecraft" && !showMinecraft) return false;
+    if (category === "rcon" && !showRcon) return false;
+
+    return true;
+  });
+
+  // Get color class for log based on category
+  const getLogColorClass = (category?: LogCategory): string => {
+    switch (category) {
+      case "docker":
+        return "text-purple-600 dark:text-purple-400";
+      case "minecraft":
+        return "text-green-600 dark:text-green-400";
+      case "rcon":
+        return "text-orange-600 dark:text-orange-400";
+      default:
+        return "text-foreground";
+    }
+  };
+
   return (
     <>
       <div className="grid gap-4 lg:grid-cols-4 h-[calc(100vh-20rem)]">
         {/* Console Terminal */}
         <Card className="lg:col-span-3 flex flex-col h-full overflow-hidden py-0">
           {/* Console Header */}
-          <div className="flex items-center justify-between px-4 h-12 border-b flex-shrink-0">
-            <div className="flex items-center gap-2">
-              <Terminal className="size-4 text-muted-foreground" />
-              <h3 className="font-semibold">Console</h3>
-              {!isRunning && (
-                <Badge variant="outline" className="text-xs">
-                  Server Offline
-                </Badge>
-              )}
-              {isRunning && connected && (
-                <Badge variant="outline" className="text-xs">
-                  <span className="size-2 rounded-full bg-green-500 mr-1.5 inline-block" />
-                  Live
-                </Badge>
-              )}
+          <div className="border-b flex-shrink-0">
+            {/* Top row */}
+            <div className="flex items-center justify-between px-4 h-12">
+              <div className="flex items-center gap-2">
+                <Terminal className="size-4 text-muted-foreground" />
+                <h3 className="font-semibold">Console</h3>
+                {!isRunning && (
+                  <Badge variant="outline" className="text-xs">
+                    Server Offline
+                  </Badge>
+                )}
+                {isRunning && connected && (
+                  <Badge variant="outline" className="text-xs">
+                    <span className="size-2 rounded-full bg-green-500 mr-1.5 inline-block" />
+                    Live
+                  </Badge>
+                )}
+              </div>
+              <div className="flex items-center gap-2">
+                <Button
+                  variant={autoScroll ? "default" : "outline"}
+                  size="sm"
+                  onClick={() => setAutoScroll(!autoScroll)}
+                  className="gap-2"
+                >
+                  <ArrowDownToLine className="size-4" />
+                  Auto-scroll
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => setConsoleHistory([])}
+                  disabled={!isRunning}
+                >
+                  Clear
+                </Button>
+              </div>
             </div>
-            <div className="flex items-center gap-2">
+
+            {/* Filters row */}
+            <div className="flex items-center gap-2 px-4 pb-2">
+              <span className="text-xs text-muted-foreground">Filters:</span>
               <Button
-                variant={autoScroll ? "default" : "outline"}
+                variant={showDocker ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => setAutoScroll(!autoScroll)}
-                className="gap-2"
+                onClick={() => setShowDocker(!showDocker)}
+                className="h-7 gap-1.5 text-xs"
               >
-                <ArrowDownToLine className="size-4" />
-                Auto-scroll
+                <Container className="size-3" />
+                Docker
               </Button>
               <Button
-                variant="outline"
+                variant={showMinecraft ? "secondary" : "ghost"}
                 size="sm"
-                onClick={() => setConsoleHistory([])}
-                disabled={!isRunning}
+                onClick={() => setShowMinecraft(!showMinecraft)}
+                className="h-7 gap-1.5 text-xs"
               >
-                Clear
+                <Gamepad2 className="size-3" />
+                Minecraft
+              </Button>
+              <Button
+                variant={showRcon ? "secondary" : "ghost"}
+                size="sm"
+                onClick={() => setShowRcon(!showRcon)}
+                className="h-7 gap-1.5 text-xs"
+              >
+                <Cable className="size-3" />
+                RCON
               </Button>
             </div>
           </div>
@@ -256,7 +352,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
           <div className="flex-1 overflow-hidden">
             <ScrollArea ref={scrollAreaRef} className="h-full">
               <div className="space-y-2 font-mono text-sm p-4">
-                {consoleHistory.map((entry, index) => (
+                {filteredHistory.map((entry, index) => (
                   <div key={index} className="flex gap-2">
                     <span className="text-muted-foreground text-xs w-20 flex-shrink-0">
                       {formatTime(entry.timestamp)}
@@ -264,9 +360,11 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
                     <span
                       className={cn("flex-1 break-all", {
                         "text-blue-600 dark:text-blue-400": entry.type === "command",
-                        "text-foreground": entry.type === "response" || entry.type === "log",
                         "text-red-600 dark:text-red-400": entry.type === "error",
                         "text-muted-foreground italic": entry.type === "system",
+                        "text-foreground": entry.type === "response",
+                        // Apply color based on log category
+                        [getLogColorClass(entry.category)]: entry.type === "log",
                       })}
                     >
                       {entry.content}
