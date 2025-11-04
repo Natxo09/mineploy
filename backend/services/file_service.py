@@ -23,10 +23,18 @@ class FileService:
         'toml', 'conf', 'cfg', 'ini', 'xml', 'md'
     }
 
-    # Restricted paths (cannot be deleted or modified)
+    # Restricted paths (cannot be deleted or renamed)
     RESTRICTED_PATHS = {
         '/eula.txt',
         '/server.jar',
+        '/.rcon-cli.env',
+        '/.rcon-cli.yaml',
+    }
+
+    # Read-only paths (cannot be edited, but can be viewed)
+    READ_ONLY_PATHS = {
+        '/.rcon-cli.env',
+        '/.rcon-cli.yaml',
     }
 
     # Max file size for upload (50MB)
@@ -81,8 +89,12 @@ class FileService:
         return path
 
     def _is_restricted_path(self, path: str) -> bool:
-        """Check if path is restricted."""
+        """Check if path is restricted (cannot be deleted or renamed)."""
         return path in self.RESTRICTED_PATHS
+
+    def _is_read_only_path(self, path: str) -> bool:
+        """Check if path is read-only (cannot be edited)."""
+        return path in self.READ_ONLY_PATHS
 
     def _get_extension(self, filename: str) -> Optional[str]:
         """Get file extension without dot."""
@@ -90,8 +102,14 @@ class FileService:
             return filename.rsplit('.', 1)[1].lower()
         return None
 
-    def _is_editable(self, filename: str) -> bool:
+    def _is_editable(self, filepath: str) -> bool:
         """Check if file can be edited in browser."""
+        # Read-only files cannot be edited
+        if self._is_read_only_path(filepath):
+            return False
+
+        # Check extension
+        filename = os.path.basename(filepath)
         ext = self._get_extension(filename)
         return ext in self.EDITABLE_EXTENSIONS if ext else False
 
@@ -217,7 +235,7 @@ class FileService:
                     type=file_type,
                     size=size,
                     modified=modified,
-                    is_editable=self._is_editable(name) if not is_directory else False,
+                    is_editable=self._is_editable(file_path) if not is_directory else False,
                     extension=self._get_extension(name) if not is_directory else None,
                 ))
 
@@ -314,6 +332,10 @@ class FileService:
 
         # Sanitize path
         path = self._sanitize_path(path)
+
+        # Check if path is read-only
+        if self._is_read_only_path(path):
+            raise ValueError(f"Cannot modify read-only file: {path}")
 
         # Check if path is restricted
         if self._is_restricted_path(path):
