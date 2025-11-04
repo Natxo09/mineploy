@@ -739,6 +739,7 @@ async def get_server_logs(
     server_id: int,
     tail: int = 500,
     filter_type: Optional[str] = None,
+    since_start: bool = False,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -751,6 +752,7 @@ async def get_server_logs(
         server_id: Server ID
         tail: Number of lines to retrieve (default: 500, max: 2000)
         filter_type: Filter logs by type: 'minecraft', 'docker', or None for all (default: None)
+        since_start: If True, only get logs since last_started_at (default: False)
         db: Database session
         current_user: Current authenticated user
 
@@ -788,10 +790,23 @@ async def get_server_logs(
         )
 
     try:
+        # Calculate since timestamp if requested
+        since_timestamp = None
+        if since_start and server.last_started_at:
+            from datetime import timezone
+            # Convert last_started_at to unix timestamp
+            if server.last_started_at.tzinfo is None:
+                # Assume UTC if naive
+                started_at = server.last_started_at.replace(tzinfo=timezone.utc)
+            else:
+                started_at = server.last_started_at
+            since_timestamp = int(started_at.timestamp())
+
         # Get container logs
         logs = await docker_service.get_container_logs(
             container_id=server.container_id,
-            tail=tail
+            tail=tail if not since_start else None,  # Don't limit if filtering by time
+            since=since_timestamp
         )
 
         # Apply filtering if requested

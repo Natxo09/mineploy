@@ -102,11 +102,15 @@ export const serverService = {
   async getServerLogsV2(
     id: number,
     tail: number = 500,
-    filterType?: LogFilterType
+    filterType?: LogFilterType,
+    sinceStart: boolean = false
   ): Promise<LogsResponse> {
     const params = new URLSearchParams({ tail: tail.toString() });
     if (filterType) {
       params.append("filter_type", filterType);
+    }
+    if (sinceStart) {
+      params.append("since_start", "true");
     }
 
     const response = await apiClient.get<LogsResponse>(

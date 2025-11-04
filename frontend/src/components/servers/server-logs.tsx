@@ -30,10 +30,10 @@ export function ServerLogs({ serverId, isRunning = false }: ServerLogsProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { timezone } = useSystemSettings();
 
-  // Fetch initial container logs when component mounts
+  // Fetch initial container logs when component mounts (only from current session)
   const { data: initialLogs, isLoading: logsLoading } = useQuery({
     queryKey: ["server-logs", serverId],
-    queryFn: () => serverService.getServerLogsV2(serverId, 500, "docker"),
+    queryFn: () => serverService.getServerLogsV2(serverId, 500, "docker", true), // since_start=true
     enabled: isRunning, // Only fetch when server is running
     refetchOnMount: true,
     refetchOnWindowFocus: false,

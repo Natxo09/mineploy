@@ -45,10 +45,10 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch initial Minecraft logs when component mounts
+  // Fetch initial Minecraft logs when component mounts (only from current session)
   const { data: initialLogs, isLoading: logsLoading } = useQuery({
     queryKey: ["minecraft-logs", serverId],
-    queryFn: () => serverService.getServerLogsV2(serverId, 500, "minecraft"),
+    queryFn: () => serverService.getServerLogsV2(serverId, 500, "minecraft", true), // since_start=true
     enabled: isRunning && hasBeenStarted, // Only fetch when running and has been started
     refetchOnMount: true,
     refetchOnWindowFocus: false,
