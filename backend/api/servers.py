@@ -1246,16 +1246,24 @@ async def websocket_endpoint(
     await manager.connect(websocket, server_id, channel)
 
     # Start log streaming if channel is for logs and server has container
-    if channel in ["minecraft_logs", "container_logs"] and server.container_id:
-        log_type = "minecraft" if channel == "minecraft_logs" else "container"
+    if channel in ["minecraft_logs", "container_logs"]:
+        if server.container_id:
+            log_type = "minecraft" if channel == "minecraft_logs" else "container"
 
-        # Start streaming task (will only start if not already running)
-        await manager.start_log_streaming(
-            server_id=server_id,
-            container_id=server.container_id,
-            channel=channel,
-            log_type=log_type
-        )
+            # Start streaming task (will only start if not already running)
+            await manager.start_log_streaming(
+                server_id=server_id,
+                container_id=server.container_id,
+                channel=channel,
+                log_type=log_type
+            )
+        else:
+            # Notify client that no container is available
+            await websocket.send_json({
+                "type": "error",
+                "message": "No container available. Server has not been started yet.",
+                "server_id": server_id
+            })
 
     try:
         while True:
