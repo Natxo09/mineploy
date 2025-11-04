@@ -793,7 +793,7 @@ async def get_server_logs(
         # Calculate since timestamp if requested
         since_timestamp = None
         if since_start and server.last_started_at:
-            from datetime import timezone
+            from datetime import timezone, datetime
             # Convert last_started_at to unix timestamp
             if server.last_started_at.tzinfo is None:
                 # Assume UTC if naive
@@ -802,12 +802,25 @@ async def get_server_logs(
                 started_at = server.last_started_at
             since_timestamp = int(started_at.timestamp())
 
+            # Debug logging
+            now = datetime.now(timezone.utc)
+            print(f"🔍 DEBUG - Getting logs since start:")
+            print(f"  - last_started_at: {server.last_started_at}")
+            print(f"  - since_timestamp: {since_timestamp}")
+            print(f"  - current time: {now}")
+            print(f"  - time diff: {(now - started_at).total_seconds()} seconds ago")
+
         # Get container logs
         logs = await docker_service.get_container_logs(
             container_id=server.container_id,
             tail=tail if not since_start else None,  # Don't limit if filtering by time
             since=since_timestamp
         )
+
+        # Debug: log what we got from Docker
+        if logs:
+            log_count = len(logs.split('\n'))
+            print(f"📝 DEBUG - Got {log_count} lines from Docker (before filtering)")
 
         # Apply filtering if requested
         if filter_type == "minecraft":
@@ -817,6 +830,9 @@ async def get_server_logs(
 
         # Count lines
         log_lines = logs.split("\n") if logs else []
+
+        # Debug: log what we're returning after filtering
+        print(f"✅ DEBUG - Returning {len(log_lines)} lines (after '{filter_type}' filtering)")
 
         return LogsResponse(
             logs=logs,
