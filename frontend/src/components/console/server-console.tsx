@@ -79,9 +79,10 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   const [autoScroll, setAutoScroll] = useState(true);
   const [showDocker, setShowDocker] = useState(true);
   const [showMinecraft, setShowMinecraft] = useState(true);
-  const [suggestions, setSuggestions] = useState<Array<{ type: "command" | "player"; text: string; detail: string }>>([]);
+  const [suggestions, setSuggestions] = useState<Array<{ type: "command" | "player" | "syntax" | "param"; text: string; detail: string; completionText?: string }>>([]);
   const [selectedSuggestion, setSelectedSuggestion] = useState(0);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [previousStatus, setPreviousStatus] = useState<string>(isRunning ? "running" : "stopped");
 
   // Player action dialogs
   const [selectedPlayer, setSelectedPlayer] = useState<string | null>(null);
@@ -124,9 +125,9 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   }, []);
 
   // Fetch initial container logs when component mounts (last 500 lines)
-  const { data: initialLogs, isLoading: logsLoading } = useQuery({
+  const { data: initialLogs, isLoading: initialLogsLoading } = useQuery({
     queryKey: ["container-logs", serverId],
-    queryFn: () => serverService.getServerLogsV2(serverId, 500, "docker", false), // Get last 500 lines
+    queryFn: () => serverService.getServerLogsV2(serverId, 500, null, false), // Get last 500 lines (all logs)
     enabled: isRunning && hasBeenStarted, // Only fetch when running and has been started
     refetchOnMount: true,
     refetchOnWindowFocus: false,
@@ -157,7 +158,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   }, [initialLogs, categorizeLog]);
 
   // WebSocket for real-time container logs
-  const { connected, logLines } = useWebSocket({
+  const { connected } = useWebSocket({
     serverId,
     channel: "container_logs", // All container logs
     enabled: isRunning && hasBeenStarted,
@@ -174,6 +175,30 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
       ]);
     },
   });
+
+  // Clear console when server status changes (start/stop)
+  useEffect(() => {
+    const currentStatus = isRunning ? "running" : "stopped";
+
+    // Detect status change
+    if (previousStatus !== currentStatus) {
+      const statusMessage = isRunning
+        ? "Server started. Streaming logs..."
+        : "Server stopped.";
+
+      // Add separator message
+      setConsoleHistory((prev) => [
+        ...prev,
+        {
+          type: "system",
+          content: `--- ${statusMessage} ---`,
+          timestamp: new Date(),
+        },
+      ]);
+
+      setPreviousStatus(currentStatus);
+    }
+  }, [isRunning, previousStatus]);
 
   // Get online players
   const { data: players, refetch: refetchPlayers } = useQuery({
@@ -360,6 +385,11 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     inputRef.current?.focus();
   };
 
+  // Check if current suggestion is selectable
+  const isSelectableSuggestion = (suggestion: typeof suggestions[0]) => {
+    return suggestion.type !== "syntax" && !!suggestion.completionText;
+  };
+
   // Handle command submission
   const handleSubmit = (e?: React.FormEvent) => {
     e?.preventDefault();
@@ -389,7 +419,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
         do {
           newIndex = newIndex < suggestions.length - 1 ? newIndex + 1 : 0;
         } while (
-          suggestions[newIndex].type === "syntax" &&
+          !isSelectableSuggestion(suggestions[newIndex]) &&
           newIndex !== selectedSuggestion
         );
         setSelectedSuggestion(newIndex);
@@ -401,31 +431,34 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
         do {
           newIndex = newIndex > 0 ? newIndex - 1 : suggestions.length - 1;
         } while (
-          suggestions[newIndex].type === "syntax" &&
+          !isSelectableSuggestion(suggestions[newIndex]) &&
           newIndex !== selectedSuggestion
         );
         setSelectedSuggestion(newIndex);
         return;
-      } else if (e.key === "Tab" || e.key === "Enter") {
-        if (e.key === "Enter" && !commandInput.trim()) return;
-
+      } else if (e.key === "Tab") {
+        e.preventDefault();
+        const currentSuggestion = suggestions[selectedSuggestion];
+        if (currentSuggestion && isSelectableSuggestion(currentSuggestion)) {
+          applySuggestion(currentSuggestion);
+        }
+        return;
+      } else if (e.key === "Enter") {
         const currentSuggestion = suggestions[selectedSuggestion];
 
-        // Only apply if it's a selectable suggestion (not syntax hint)
-        if (currentSuggestion && currentSuggestion.type !== "syntax" && currentSuggestion.completionText) {
-          if (e.key === "Tab") {
-            e.preventDefault();
-            applySuggestion(currentSuggestion);
-            return;
-          }
-
-          // Enter with suggestion selected - apply it
-          if (selectedSuggestion >= 0 && selectedSuggestion < suggestions.length) {
-            e.preventDefault();
-            applySuggestion(currentSuggestion);
-            return;
-          }
+        // If there's a selectable suggestion, apply it
+        if (currentSuggestion && isSelectableSuggestion(currentSuggestion)) {
+          e.preventDefault();
+          applySuggestion(currentSuggestion);
+          return;
         }
+
+        // Otherwise, submit the command (if not empty)
+        if (!commandInput.trim()) {
+          e.preventDefault();
+          return;
+        }
+        // Let the form submit naturally
       } else if (e.key === "Escape") {
         e.preventDefault();
         setShowSuggestions(false);
@@ -572,30 +605,39 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
           <div className="flex-1 overflow-hidden">
             <ScrollArea ref={scrollAreaRef} className="h-full">
               <div className="space-y-2 font-mono text-sm p-4">
-                {filteredHistory.map((entry, index) => (
-                  <div key={index} className="flex gap-2">
-                    <span className="text-muted-foreground text-xs w-20 flex-shrink-0">
-                      {formatTime(entry.timestamp)}
-                    </span>
-                    <span
-                      className={cn("flex-1 break-all", {
-                        "text-blue-600 dark:text-blue-400": entry.type === "command",
-                        "text-red-600 dark:text-red-400": entry.type === "error",
-                        "text-muted-foreground italic": entry.type === "system",
-                        "text-foreground": entry.type === "response",
-                        // Apply color based on log category
-                        [getLogColorClass(entry.category)]: entry.type === "log",
-                      })}
-                    >
-                      {entry.content}
-                    </span>
-                  </div>
-                ))}
-                {executeCommand.isPending && (
+                {initialLogsLoading && isRunning ? (
                   <div className="flex items-center gap-2 text-muted-foreground">
                     <Loader2 className="size-3 animate-spin" />
-                    <span className="text-sm">Executing command...</span>
+                    <span className="text-sm">Loading logs...</span>
                   </div>
+                ) : (
+                  <>
+                    {filteredHistory.map((entry, index) => (
+                      <div key={index} className="flex gap-2">
+                        <span className="text-muted-foreground text-xs w-20 flex-shrink-0">
+                          {formatTime(entry.timestamp)}
+                        </span>
+                        <span
+                          className={cn("flex-1 break-all", {
+                            "text-blue-600 dark:text-blue-400": entry.type === "command",
+                            "text-red-600 dark:text-red-400": entry.type === "error",
+                            "text-muted-foreground italic": entry.type === "system",
+                            "text-foreground": entry.type === "response",
+                            // Apply color based on log category
+                            [getLogColorClass(entry.category)]: entry.type === "log",
+                          })}
+                        >
+                          {entry.content}
+                        </span>
+                      </div>
+                    ))}
+                    {executeCommand.isPending && (
+                      <div className="flex items-center gap-2 text-muted-foreground">
+                        <Loader2 className="size-3 animate-spin" />
+                        <span className="text-sm">Executing command...</span>
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </ScrollArea>
@@ -612,8 +654,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
                     className="absolute bottom-full left-0 right-0 mb-2 bg-popover border rounded-md shadow-lg max-h-64 overflow-auto z-50"
                   >
                     {suggestions.map((suggestion, index) => {
-                      const isSyntaxHint = suggestion.type === "syntax";
-                      const isSelectable = !isSyntaxHint && suggestion.completionText;
+                      const selectable = isSelectableSuggestion(suggestion);
 
                       return (
                         <div
@@ -621,23 +662,23 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
                           className={cn(
                             "px-3 py-2 border-b last:border-b-0 transition-colors",
                             {
-                              "cursor-pointer hover:bg-accent": isSelectable,
-                              "bg-accent": index === selectedSuggestion && isSelectable,
-                              "bg-muted/50 cursor-default": isSyntaxHint,
+                              "cursor-pointer hover:bg-accent": selectable,
+                              "bg-accent": index === selectedSuggestion && selectable,
+                              "bg-muted/50 cursor-default": !selectable,
                             }
                           )}
-                          onClick={() => isSelectable && applySuggestion(suggestion)}
-                          onMouseEnter={() => isSelectable && setSelectedSuggestion(index)}
+                          onClick={() => selectable && applySuggestion(suggestion)}
+                          onMouseEnter={() => selectable && setSelectedSuggestion(index)}
                         >
                           <div className="flex items-start gap-2">
                             <Lightbulb className={cn(
                               "size-4 mt-0.5 flex-shrink-0",
-                              isSyntaxHint ? "text-yellow-500" : "text-muted-foreground"
+                              !selectable ? "text-yellow-500" : "text-muted-foreground"
                             )} />
                             <div className="flex-1 min-w-0">
                               <div className={cn(
                                 "font-mono text-sm font-medium truncate",
-                                isSyntaxHint && "text-muted-foreground italic"
+                                !selectable && "text-muted-foreground italic"
                               )}>
                                 {suggestion.text}
                               </div>
@@ -655,7 +696,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
                                 Param
                               </Badge>
                             )}
-                            {isSyntaxHint && (
+                            {!selectable && (
                               <Badge variant="outline" className="text-xs flex-shrink-0">
                                 Syntax
                               </Badge>

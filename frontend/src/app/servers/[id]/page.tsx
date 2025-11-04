@@ -23,6 +23,7 @@ import type { ServerStatus } from "@/types";
 import { ServerConsole } from "@/components/console/server-console";
 import { ServerStatsCharts } from "@/components/servers/server-stats-charts";
 import { ServerSettings } from "@/components/servers/server-settings";
+import { ServerPlayers } from "@/components/servers/server-players";
 
 const statusConfig: Record<
   ServerStatus,
@@ -195,7 +196,7 @@ export default function ServerDetailPage() {
             <BarChart3 className="size-4" />
             Stats
           </TabsTrigger>
-          <TabsTrigger value="players" disabled>
+          <TabsTrigger value="players">
             <Users className="size-4" />
             Players
           </TabsTrigger>
@@ -221,6 +222,13 @@ export default function ServerDetailPage() {
           <ServerStatsCharts
             stats={stats}
             server={server}
+            isRunning={server.status === "running"}
+          />
+        </TabsContent>
+
+        <TabsContent value="players" className="space-y-4">
+          <ServerPlayers
+            serverId={serverId}
             isRunning={server.status === "running"}
           />
         </TabsContent>
