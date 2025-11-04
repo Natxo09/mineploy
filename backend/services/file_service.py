@@ -151,28 +151,44 @@ class FileService:
             tar_members = tar_file.getmembers()
             print(f"[DEBUG] Total tar members: {len(tar_members)}")
 
-            # Get the base directory name
-            base_name = os.path.basename(container_path) if container_path != '/data/' else ''
-            print(f"[DEBUG] Base name: '{base_name}'")
+            # Docker returns tar with the last component of the path as root
+            # For /data/ -> returns 'data/' as root
+            # For /data/world -> returns 'world/' as root
+            base_dir_name = os.path.basename(container_path.rstrip('/'))
+            print(f"[DEBUG] Base dir name: '{base_dir_name}'")
+
+            # Build expected prefix for tar members
+            expected_prefix = base_dir_name + '/'
+            print(f"[DEBUG] Expected prefix: '{expected_prefix}'")
 
             for idx, member in enumerate(tar_members):
                 print(f"[DEBUG] Member {idx}: name={member.name}, type={member.type}, size={member.size}")
 
                 # Skip the base directory itself
-                if member.name == base_name or member.name == '.':
-                    print(f"[DEBUG] Skipping base directory")
+                if member.name == base_dir_name:
+                    print(f"[DEBUG] Skipping base directory itself")
+                    continue
+
+                # Check if member is directly under the base directory
+                if not member.name.startswith(expected_prefix):
+                    print(f"[DEBUG] Skipping - doesn't start with expected prefix")
                     continue
 
                 # Get relative name (remove base directory prefix)
-                if base_name and member.name.startswith(base_name + '/'):
-                    name = member.name[len(base_name) + 1:]
-                else:
-                    name = member.name
+                relative_name = member.name[len(expected_prefix):]
+                print(f"[DEBUG] Relative name: '{relative_name}'")
 
-                # Skip if contains / (subdirectory items)
-                if '/' in name:
-                    print(f"[DEBUG] Skipping subdirectory item: {name}")
+                # Skip if empty (shouldn't happen but just in case)
+                if not relative_name:
+                    print(f"[DEBUG] Skipping - empty relative name")
                     continue
+
+                # Skip if contains / (means it's in a subdirectory, not directly under current path)
+                if '/' in relative_name:
+                    print(f"[DEBUG] Skipping subdirectory item: {relative_name}")
+                    continue
+
+                name = relative_name
 
                 # Determine type
                 is_directory = member.isdir()
