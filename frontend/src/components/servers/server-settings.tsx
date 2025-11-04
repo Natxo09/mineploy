@@ -116,9 +116,9 @@ export function ServerSettings({ serverId, isRunning }: ServerSettingsProps) {
     const isNotStarted = errorMessage.includes("has not been started yet");
 
     return (
-      <Alert variant={isNotStarted ? "default" : "destructive"}>
-        <Info className="size-4" />
-        <AlertDescription>
+      <Alert variant={isNotStarted ? "default" : "destructive"} className={isNotStarted ? "border-orange-500 bg-orange-50 dark:bg-orange-950/20" : ""}>
+        <AlertTriangle className="size-4 text-orange-600 dark:text-orange-500" />
+        <AlertDescription className={isNotStarted ? "text-orange-900 dark:text-orange-200" : ""}>
           {isNotStarted ? (
             <>
               <strong>Server not started yet</strong>
