@@ -130,17 +130,22 @@ class FileService:
             tar_stream = await container.get_archive(container_path)
             print(f"[DEBUG] Got tar stream, type: {type(tar_stream)}")
 
-            # Read tar data
-            if hasattr(tar_stream, 'read'):
-                tar_data = tar_stream.read()
+            # Check if it's already a TarFile object or raw bytes
+            if isinstance(tar_stream, tarfile.TarFile):
+                tar_file = tar_stream
+                print(f"[DEBUG] Using TarFile object directly")
             else:
-                tar_data = tar_stream
+                # Read tar data if it's bytes or a stream
+                if hasattr(tar_stream, 'read'):
+                    tar_data = tar_stream.read()
+                else:
+                    tar_data = tar_stream
 
-            print(f"[DEBUG] Tar data size: {len(tar_data)} bytes")
+                print(f"[DEBUG] Tar data size: {len(tar_data)} bytes")
 
-            # Open tar file
-            tar_file = tarfile.open(fileobj=io.BytesIO(tar_data))
-            print(f"[DEBUG] Opened tar file")
+                # Open tar file
+                tar_file = tarfile.open(fileobj=io.BytesIO(tar_data))
+                print(f"[DEBUG] Opened tar file from bytes")
 
             files = []
             tar_members = tar_file.getmembers()
