@@ -1204,15 +1204,27 @@ async def update_server_properties(
 async def websocket_endpoint(
     websocket: WebSocket,
     server_id: int,
+    channel: str = "default",
     db: AsyncSession = Depends(get_db),
 ):
     """
     WebSocket endpoint for real-time server updates.
 
+    Supports multiple channels:
+    - default: Status updates and generic messages
+    - minecraft_logs: Real-time Minecraft server logs
+    - container_logs: Real-time Docker container logs
+
     Args:
         websocket: WebSocket connection
         server_id: Server ID to subscribe to
+        channel: Channel to subscribe to (default, minecraft_logs, container_logs)
         db: Database session
+
+    Query parameters:
+        ?channel=minecraft_logs  - Subscribe to Minecraft logs
+        ?channel=container_logs  - Subscribe to container logs
+        ?channel=default         - Subscribe to status updates (default)
 
     Note:
         Authentication is handled via query parameters or headers.
@@ -1230,13 +1242,42 @@ async def websocket_endpoint(
     # For now, we'll accept all connections
     # In production, verify the user has VIEW permission for this server
 
-    await manager.connect(websocket, server_id)
+    # Connect to the specific channel
+    await manager.connect(websocket, server_id, channel)
+
+    # Start log streaming if channel is for logs and server has container
+    if channel in ["minecraft_logs", "container_logs"] and server.container_id:
+        log_type = "minecraft" if channel == "minecraft_logs" else "container"
+
+        # Start streaming task (will only start if not already running)
+        await manager.start_log_streaming(
+            server_id=server_id,
+            container_id=server.container_id,
+            channel=channel,
+            log_type=log_type
+        )
+
     try:
         while True:
             # Keep connection alive and handle incoming messages
             data = await websocket.receive_text()
-            # Echo back or handle ping/pong
+
+            # Handle ping/pong
             if data == "ping":
                 await websocket.send_json({"type": "pong"})
+
+            # Handle start/stop streaming commands
+            elif data == "start_streaming" and channel in ["minecraft_logs", "container_logs"]:
+                if server.container_id:
+                    log_type = "minecraft" if channel == "minecraft_logs" else "container"
+                    await manager.start_log_streaming(
+                        server_id=server_id,
+                        container_id=server.container_id,
+                        channel=channel,
+                        log_type=log_type
+                    )
+            elif data == "stop_streaming":
+                manager.stop_log_streaming(server_id, channel)
+
     except WebSocketDisconnect:
-        manager.disconnect(websocket, server_id)
+        manager.disconnect(websocket, server_id, channel)
