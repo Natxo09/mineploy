@@ -5,7 +5,7 @@ API endpoints for Minecraft server management.
 from fastapi import APIRouter, Depends, HTTPException, status, WebSocket, WebSocketDisconnect
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
-from typing import List
+from typing import List, Optional
 import secrets
 import string
 
@@ -25,12 +25,18 @@ from schemas.properties import (
     ServerPropertiesResponse,
     ServerPropertiesUpdate,
 )
+from schemas.logs import (
+    LogFileListResponse,
+    LogFileContentResponse,
+    LogsResponse,
+)
 from services.docker_service import docker_service
 from services.permission_service import PermissionService
 from services.websocket_service import manager
 from services.rcon_service import rcon_service
 from services.properties_parser import properties_parser
 from services.server_properties_service import server_properties_service
+from services.minecraft_logs_service import minecraft_logs_service
 from core.config import settings
 
 router = APIRouter()
@@ -732,10 +738,11 @@ async def get_server_stats(
     return ServerStats(**stats_data)
 
 
-@router.get("/{server_id}/logs")
+@router.get("/{server_id}/logs", response_model=LogsResponse)
 async def get_server_logs(
     server_id: int,
     tail: int = 500,
+    filter_type: Optional[str] = None,
     db: AsyncSession = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
@@ -747,6 +754,7 @@ async def get_server_logs(
     Args:
         server_id: Server ID
         tail: Number of lines to retrieve (default: 500, max: 2000)
+        filter_type: Filter logs by type: 'minecraft', 'docker', or None for all (default: None)
         db: Database session
         current_user: Current authenticated user
 
@@ -777,10 +785,11 @@ async def get_server_logs(
 
     # Check if server has a container
     if not server.container_id:
-        return {
-            "logs": "No container found. Server may not have been started yet.",
-            "lines": 1
-        }
+        return LogsResponse(
+            logs="No container found. Server may not have been started yet.",
+            lines=1,
+            filtered=filter_type
+        )
 
     try:
         # Get container logs
@@ -789,18 +798,168 @@ async def get_server_logs(
             tail=tail
         )
 
+        # Apply filtering if requested
+        if filter_type == "minecraft":
+            logs = minecraft_logs_service.filter_minecraft_logs(logs)
+        elif filter_type == "docker":
+            logs = minecraft_logs_service.filter_docker_logs(logs)
+
         # Count lines
         log_lines = logs.split("\n") if logs else []
 
-        return {
-            "logs": logs,
-            "lines": len(log_lines)
-        }
+        return LogsResponse(
+            logs=logs,
+            lines=len(log_lines),
+            filtered=filter_type
+        )
 
     except Exception as e:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve logs: {str(e)}"
+        )
+
+
+@router.get("/{server_id}/logs/files", response_model=LogFileListResponse)
+async def list_log_files(
+    server_id: int,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    List all available log files for a Minecraft server.
+
+    Includes both the current latest.log and archived .log.gz files.
+
+    Requires VIEW permission or higher.
+
+    Args:
+        server_id: Server ID
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        List of available log files with metadata
+    """
+    # Get server
+    result = await db.execute(select(Server).where(Server.id == server_id))
+    server = result.scalar_one_or_none()
+
+    if not server:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Server with ID {server_id} not found"
+        )
+
+    # Check permissions
+    if not await PermissionService.has_server_permission(
+        current_user, server_id, ServerPermission.VIEW, db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view this server"
+        )
+
+    # Check if server has a container
+    if not server.container_id:
+        return LogFileListResponse(files=[], total=0)
+
+    try:
+        # Get list of log files
+        files = await minecraft_logs_service.list_log_files(server.container_id)
+
+        return LogFileListResponse(
+            files=files,
+            total=len(files)
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to list log files: {str(e)}"
+        )
+
+
+@router.get("/{server_id}/logs/file", response_model=LogFileContentResponse)
+async def read_log_file(
+    server_id: int,
+    filename: str,
+    max_lines: Optional[int] = None,
+    db: AsyncSession = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Read a specific log file from the Minecraft server.
+
+    Supports both regular .log files and compressed .log.gz files.
+
+    Requires VIEW permission or higher.
+
+    Args:
+        server_id: Server ID
+        filename: Name of the log file (e.g., 'latest.log', '2024-01-15-1.log.gz')
+        max_lines: Maximum number of lines to return (from end of file)
+        db: Database session
+        current_user: Current authenticated user
+
+    Returns:
+        Log file content
+    """
+    # Get server
+    result = await db.execute(select(Server).where(Server.id == server_id))
+    server = result.scalar_one_or_none()
+
+    if not server:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Server with ID {server_id} not found"
+        )
+
+    # Check permissions
+    if not await PermissionService.has_server_permission(
+        current_user, server_id, ServerPermission.VIEW, db
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="You don't have permission to view this server"
+        )
+
+    # Check if server has a container
+    if not server.container_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Server does not have a container yet"
+        )
+
+    # Security: Validate filename to prevent path traversal
+    if "/" in filename or "\\" in filename or ".." in filename:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Invalid filename"
+        )
+
+    try:
+        # Read log file
+        content = await minecraft_logs_service.read_log_file(
+            server.container_id,
+            filename,
+            max_lines=max_lines
+        )
+
+        # Count lines
+        lines = len(content.split("\n")) if content else 0
+
+        return LogFileContentResponse(
+            filename=filename,
+            content=content,
+            lines=lines,
+            size=len(content.encode('utf-8'))
+        )
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to read log file: {str(e)}"
         )
 
 
