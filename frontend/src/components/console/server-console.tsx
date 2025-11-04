@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Send, Users, Loader2, Terminal, AlertCircle } from "lucide-react";
+import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -41,6 +41,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   ]);
   const [commandHistory, setCommandHistory] = useState<string[]>([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
+  const [autoScroll, setAutoScroll] = useState(true);
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -140,9 +141,9 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     },
   });
 
-  // Auto-scroll to bottom when new entries are added
+  // Auto-scroll to bottom when new entries are added (only if enabled)
   useEffect(() => {
-    if (scrollAreaRef.current) {
+    if (autoScroll && scrollAreaRef.current) {
       const scrollContainer = scrollAreaRef.current.querySelector(
         "[data-radix-scroll-area-viewport]"
       );
@@ -150,7 +151,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
         scrollContainer.scrollTop = scrollContainer.scrollHeight;
       }
     }
-  }, [consoleHistory]);
+  }, [consoleHistory, autoScroll]);
 
   // Handle command submission
   const handleSubmit = (e?: React.FormEvent) => {
@@ -231,6 +232,15 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
               )}
             </div>
             <div className="flex items-center gap-2">
+              <Button
+                variant={autoScroll ? "default" : "outline"}
+                size="sm"
+                onClick={() => setAutoScroll(!autoScroll)}
+                className="gap-2"
+              >
+                <ArrowDownToLine className="size-4" />
+                Auto-scroll
+              </Button>
               <Button
                 variant="outline"
                 size="sm"
