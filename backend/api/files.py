@@ -28,7 +28,6 @@ from services.file_service import file_service
 from services.permission_service import PermissionService
 
 router = APIRouter()
-permission_service = PermissionService()
 
 
 async def _get_server_with_permission(
@@ -63,11 +62,11 @@ async def _get_server_with_permission(
         )
 
     # Check permission
-    has_permission = await permission_service.check_permission(
-        db=db,
+    has_permission = await PermissionService.has_server_permission(
         user=user,
-        server=server,
+        server_id=server_id,
         permission=required_permission,
+        db=db,
     )
 
     if not has_permission:
