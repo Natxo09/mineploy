@@ -112,34 +112,49 @@ class FileService:
         await self.connect()
 
         try:
+            print(f"[DEBUG] list_files called with container_id={container_id}, path={path}")
+
             # Sanitize path
             path = self._sanitize_path(path)
+            print(f"[DEBUG] Sanitized path: {path}")
 
             # Build full container path
             container_path = f"/data{path}"
+            print(f"[DEBUG] Container path: {container_path}")
 
             container = self.docker.containers.container(container_id)
+            print(f"[DEBUG] Got container object")
 
             # Execute ls command to list directory
             # Using exec instead of get_archive for better directory listing
             exec_instance = await container.exec(
                 cmd=['ls', '-la', '--time-style=+%Y-%m-%dT%H:%M:%S', container_path],
             )
+            print(f"[DEBUG] Created exec instance")
 
             # Get output
             output = await exec_instance.start(detach=False)
+            print(f"[DEBUG] Exec output type: {type(output)}")
+            print(f"[DEBUG] Exec output raw: {output}")
+
             output_str = output.decode('utf-8') if isinstance(output, bytes) else output
+            print(f"[DEBUG] Parsed output:\n{output_str}")
 
             files = []
             lines = output_str.strip().split('\n')
+            print(f"[DEBUG] Total lines: {len(lines)}")
 
             # Skip first line (total) and parse each line
-            for line in lines[1:]:
+            for idx, line in enumerate(lines[1:], start=1):
                 if not line.strip():
+                    print(f"[DEBUG] Line {idx}: Empty, skipping")
                     continue
 
                 parts = line.split()
+                print(f"[DEBUG] Line {idx}: {len(parts)} parts - {parts}")
+
                 if len(parts) < 9:
+                    print(f"[DEBUG] Line {idx}: Not enough parts, skipping")
                     continue
 
                 # Parse ls -la output
@@ -151,6 +166,7 @@ class FileService:
 
                 # Skip . and ..
                 if name in ['.', '..']:
+                    print(f"[DEBUG] Line {idx}: Skipping {name}")
                     continue
 
                 # Determine type
@@ -176,6 +192,8 @@ class FileService:
                 else:
                     file_path = f"{path}/{name}"
 
+                print(f"[DEBUG] Line {idx}: Adding file - name={name}, type={file_type}, size={size}")
+
                 files.append(FileInfo(
                     name=name,
                     path=file_path,
@@ -186,15 +204,23 @@ class FileService:
                     extension=self._get_extension(name) if not is_directory else None,
                 ))
 
+            print(f"[DEBUG] Total files found: {len(files)}")
+
             # Sort: directories first, then files alphabetically
             files.sort(key=lambda f: (f.type == FileType.FILE, f.name.lower()))
 
             return files
 
         except DockerError as e:
+            print(f"[ERROR] DockerError: status={e.status}, message={str(e)}")
             if e.status == 404:
                 raise FileNotFoundError(f"Path not found: {path}")
             raise DockerError(e.status, {"message": f"Failed to list files: {str(e)}"})
+        except Exception as e:
+            print(f"[ERROR] Unexpected error: {type(e).__name__}: {str(e)}")
+            import traceback
+            traceback.print_exc()
+            raise
 
     async def read_file(self, container_id: str, path: str) -> bytes:
         """
