@@ -66,6 +66,7 @@ class Server(Base):
         nullable=False
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    has_been_started: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(

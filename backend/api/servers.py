@@ -495,6 +495,7 @@ async def start_server(
         server.status = ServerStatus.RUNNING
         from datetime import datetime, timezone
         server.last_started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        server.has_been_started = True
         await db.commit()
         await db.refresh(server)
 
@@ -626,6 +627,7 @@ async def restart_server(
         server.status = ServerStatus.RUNNING
         from datetime import datetime, timezone
         server.last_started_at = datetime.now(timezone.utc).replace(tzinfo=None)
+        server.has_been_started = True
         await db.commit()
         await db.refresh(server)
 
@@ -936,6 +938,13 @@ async def get_server_properties(
             detail="Server does not have a container yet"
         )
 
+    # Check if server has been started at least once
+    if not server.has_been_started:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Server has not been started yet. Start the server at least once to generate server.properties file."
+        )
+
     try:
         properties = await server_properties_service.get_properties(server.container_id)
         return properties
@@ -992,6 +1001,13 @@ async def update_server_properties(
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Server does not have a container yet"
+        )
+
+    # Check if server has been started at least once
+    if not server.has_been_started:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Server has not been started yet. Start the server at least once to generate server.properties file."
         )
 
     try:

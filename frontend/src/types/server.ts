@@ -44,6 +44,7 @@ export interface Server {
   container_name: string;
   status: ServerStatus;
   is_active: boolean;
+  has_been_started: boolean;
   created_at: string;
   updated_at: string;
   last_started_at: string | null;

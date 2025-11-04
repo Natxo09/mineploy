@@ -112,12 +112,22 @@ export function ServerSettings({ serverId, isRunning }: ServerSettingsProps) {
   }
 
   if (error) {
+    const errorMessage = (error as any)?.response?.data?.detail || "Failed to load server properties";
+    const isNotStarted = errorMessage.includes("has not been started yet");
+
     return (
-      <Alert variant="destructive">
-        <AlertTriangle className="size-4" />
+      <Alert variant={isNotStarted ? "default" : "destructive"}>
+        <Info className="size-4" />
         <AlertDescription>
-          Failed to load server properties. Make sure the server has been started at
-          least once.
+          {isNotStarted ? (
+            <>
+              <strong>Server not started yet</strong>
+              <br />
+              Start the server at least once to generate the server.properties file and access settings.
+            </>
+          ) : (
+            errorMessage
+          )}
         </AlertDescription>
       </Alert>
     );

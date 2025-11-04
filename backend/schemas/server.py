@@ -60,6 +60,7 @@ class ServerResponse(ServerBase):
     container_name: str
     status: ServerStatus
     is_active: bool
+    has_been_started: bool
     created_at: datetime
     updated_at: datetime
     last_started_at: Optional[datetime] = None
