@@ -5,6 +5,7 @@ Minecraft Server model.
 from datetime import datetime
 from enum import Enum as PyEnum
 from sqlalchemy import String, Integer, Boolean, DateTime, Enum, Text, func
+from sqlalchemy.dialects.mysql import MEDIUMTEXT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from typing import TYPE_CHECKING
 
@@ -67,6 +68,9 @@ class Server(Base):
     )
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     has_been_started: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+
+    # Session logs (temporary storage for current session only, max 5000 lines)
+    current_session_logs: Mapped[str] = mapped_column(MEDIUMTEXT, nullable=True)
 
     # Timestamps
     created_at: Mapped[datetime] = mapped_column(
