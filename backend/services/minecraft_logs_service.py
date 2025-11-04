@@ -240,13 +240,16 @@ class MinecraftLogsService:
 
     def filter_docker_logs(self, logs: str) -> str:
         """
-        Filter logs to only include Docker/system logs (exclude Minecraft logs and RCON spam).
+        Filter logs to include all container logs except RCON spam.
+
+        Despite the name, this now returns all logs (Docker + Minecraft)
+        but excludes RCON connection spam from health checks.
 
         Args:
             logs: Raw log content
 
         Returns:
-            Filtered log content with only Docker/system logs (RCON logs excluded)
+            Filtered log content (all logs except RCON)
         """
         filtered_lines = []
 
@@ -258,21 +261,8 @@ class MinecraftLogsService:
             if 'RCON Listener' in line or 'RCON Client' in line:
                 continue
 
-            # Check if line matches Docker patterns
-            is_docker = any(
-                re.search(pattern, line)
-                for pattern in self.DOCKER_LOG_PATTERNS
-            )
-
-            # Check if line matches Minecraft patterns
-            is_minecraft = any(
-                re.search(pattern, line)
-                for pattern in self.MINECRAFT_LOG_PATTERNS
-            )
-
-            # Include line if it's identified as Docker or not identified as Minecraft
-            if is_docker or not is_minecraft:
-                filtered_lines.append(line)
+            # Include all other logs
+            filtered_lines.append(line)
 
         return '\n'.join(filtered_lines)
 
