@@ -45,10 +45,10 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
 
-  // Fetch initial Minecraft logs when component mounts (only from current session)
+  // Fetch initial container logs when component mounts (only from current session)
   const { data: initialLogs, isLoading: logsLoading } = useQuery({
-    queryKey: ["minecraft-logs", serverId],
-    queryFn: () => serverService.getServerLogsV2(serverId, 500, "minecraft", true), // since_start=true
+    queryKey: ["container-logs", serverId],
+    queryFn: () => serverService.getServerLogsV2(serverId, 500, "docker", true), // docker = all container logs
     enabled: isRunning && hasBeenStarted, // Only fetch when running and has been started
     refetchOnMount: true,
     refetchOnWindowFocus: false,
@@ -77,13 +77,13 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     }
   }, [initialLogs]);
 
-  // WebSocket for real-time Minecraft logs
+  // WebSocket for real-time container logs
   const { connected, logLines } = useWebSocket({
     serverId,
-    channel: "minecraft_logs",
+    channel: "container_logs", // All container logs
     enabled: isRunning && hasBeenStarted,
     onLogLine: (line) => {
-      // Add server log to console
+      // Add container log to console
       setConsoleHistory((prev) => [
         ...prev,
         {
