@@ -12,7 +12,7 @@ import { Card } from "@/components/ui/card";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2, Cable } from "lucide-react";
+import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 
@@ -47,7 +47,6 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
   const [autoScroll, setAutoScroll] = useState(true);
   const [showDocker, setShowDocker] = useState(true);
   const [showMinecraft, setShowMinecraft] = useState(true);
-  const [showRcon, setShowRcon] = useState(false); // Hidden by default
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const queryClient = useQueryClient();
@@ -251,7 +250,7 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
     const category = entry.category || "unknown";
     if (category === "docker" && !showDocker) return false;
     if (category === "minecraft" && !showMinecraft) return false;
-    if (category === "rcon" && !showRcon) return false;
+    // RCON logs are filtered in the backend, so they shouldn't appear here
 
     return true;
   });
@@ -335,15 +334,6 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
               >
                 <Gamepad2 className="size-3" />
                 Minecraft
-              </Button>
-              <Button
-                variant={showRcon ? "secondary" : "ghost"}
-                size="sm"
-                onClick={() => setShowRcon(!showRcon)}
-                className="h-7 gap-1.5 text-xs"
-              >
-                <Cable className="size-3" />
-                RCON
               </Button>
             </div>
           </div>
