@@ -15,8 +15,28 @@ from schemas.console import CommandRequest, CommandResponse, PlayerListResponse
 from services.rcon_service import rcon_service
 from services.query_service import query_service
 from services.permission_service import PermissionService
+from services.server_properties_service import server_properties_service
 
 router = APIRouter()
+
+
+async def _get_max_players(container_name: str) -> int:
+    """
+    Get max_players from server.properties file.
+    Falls back to 20 if unable to read.
+
+    Args:
+        container_name: Docker container name
+
+    Returns:
+        Maximum number of players configured
+    """
+    try:
+        properties = await server_properties_service.get_properties(container_name)
+        return properties.max_players
+    except Exception as e:
+        print(f"⚠️  Failed to read max_players from server.properties: {e}")
+        return 20  # Fallback to default
 
 
 @router.post("/{server_id}/command", response_model=CommandResponse)
@@ -112,9 +132,11 @@ async def get_players(
 
     # Check if server is running
     if server.status != ServerStatus.RUNNING:
+        # Read max_players from server.properties instead of hardcoding
+        max_players = await _get_max_players(server.container_name)
         return PlayerListResponse(
             online_players=0,
-            max_players=20,
+            max_players=max_players,
             players=[],
         )
 
@@ -135,8 +157,10 @@ async def get_players(
     except Exception as e:
         # Return empty list if Query fails
         print(f"⚠️  Failed to get players for server {server_id}: {e}")
+        # Read max_players from server.properties instead of hardcoding
+        max_players = await _get_max_players(server.container_name)
         return PlayerListResponse(
             online_players=0,
-            max_players=20,
+            max_players=max_players,
             players=[],
         )
