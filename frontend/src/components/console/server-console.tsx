@@ -37,7 +37,13 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2, Lightbulb, Crown, UserX, Ban, Shield, MessageSquare, ShieldOff, UserCog } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import { Send, Users, Loader2, Terminal, AlertCircle, ArrowDownToLine, Container, Gamepad2, Lightbulb, Crown, UserX, Ban, Shield, MessageSquare, ShieldOff, UserCog, Info } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { toast } from "sonner";
 import { getCommandSuggestions } from "@/lib/minecraft-commands";
@@ -711,6 +717,18 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
               <div className="flex items-center gap-2">
                 <Users className="size-4 text-muted-foreground" />
                 <h3 className="font-semibold">Players</h3>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Info className="size-3.5 text-muted-foreground cursor-help" />
+                    </TooltipTrigger>
+                    <TooltipContent side="right" className="max-w-xs">
+                      <p className="text-xs">
+                        Right-click on any player to access actions: OP, kick, ban, whitelist, and more.
+                      </p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
               <Badge variant="outline">
                 {players?.online_players ?? 0} / {players?.max_players ?? 20}
@@ -730,17 +748,22 @@ export function ServerConsole({ serverId, isRunning, hasBeenStarted = false }: S
               <div className="space-y-2">
                 {players.players.map((playerName, index) => (
                   <ContextMenu key={index}>
-                    <ContextMenuTrigger>
-                      <div className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted/50 transition-colors cursor-context-menu">
+                    <ContextMenuTrigger asChild>
+                      <div
+                        className="flex items-center gap-2 p-2 rounded-lg hover:bg-muted transition-colors cursor-pointer border border-transparent hover:border-border group"
+                        role="button"
+                        tabIndex={0}
+                      >
                         <Image
                           src={`https://minotar.net/avatar/${encodeURIComponent(playerName)}/32`}
                           alt={playerName}
                           width={32}
                           height={32}
-                          className="size-8 rounded-md"
+                          className="size-8 rounded-md ring-2 ring-transparent group-hover:ring-primary/20 transition-all"
                           unoptimized
                         />
-                        <span className="text-sm font-medium">{playerName}</span>
+                        <span className="text-sm font-medium flex-1">{playerName}</span>
+                        <UserCog className="size-4 text-muted-foreground opacity-0 group-hover:opacity-100 transition-opacity" />
                       </div>
                     </ContextMenuTrigger>
                     <ContextMenuContent>
