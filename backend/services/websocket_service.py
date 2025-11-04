@@ -287,16 +287,6 @@ class ConnectionManager:
                                         await self.broadcast_log_line(server_id, line, channel)
                                         sent_lines.add(line)
 
-                                        # Save to session logs in database
-                                        try:
-                                            from core.database import async_session_maker
-                                            from services.session_logs_service import session_logs_service
-
-                                            async with async_session_maker() as db:
-                                                await session_logs_service.append_log_line(server_id, line, db)
-                                        except Exception as log_error:
-                                            print(f"⚠️  Failed to save log to DB: {log_error}")
-
                                         # Limit sent_lines size to prevent memory growth
                                         if len(sent_lines) > 1000:
                                             # Remove oldest half
@@ -331,16 +321,6 @@ class ConnectionManager:
                     for line in chunk.split('\n'):
                         if line.strip():
                             await self.broadcast_log_line(server_id, line, channel)
-
-                            # Save to session logs in database
-                            try:
-                                from core.database import async_session_maker
-                                from services.session_logs_service import session_logs_service
-
-                                async with async_session_maker() as db:
-                                    await session_logs_service.append_log_line(server_id, line, db)
-                            except Exception as log_error:
-                                print(f"⚠️  Failed to save log to DB: {log_error}")
 
             except asyncio.CancelledError:
                 print(f"🛑 Log streaming cancelled for server {server_id}, channel '{channel}'")

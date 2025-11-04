@@ -33,7 +33,6 @@ from services.rcon_service import rcon_service
 from services.properties_parser import properties_parser
 from services.server_properties_service import server_properties_service
 from services.minecraft_logs_service import minecraft_logs_service
-from services.session_logs_service import session_logs_service
 from core.config import settings
 
 router = APIRouter()
@@ -499,8 +498,6 @@ async def start_server(
         from datetime import datetime, timezone
         server.last_started_at = datetime.now(timezone.utc).replace(tzinfo=None)
         server.has_been_started = True
-        # Clear session logs for new session
-        server.current_session_logs = None
         await db.commit()
         await db.refresh(server)
 
@@ -570,8 +567,6 @@ async def stop_server(
         server.status = ServerStatus.STOPPED
         from datetime import datetime, timezone
         server.last_stopped_at = datetime.now(timezone.utc).replace(tzinfo=None)
-        # Clear session logs on stop
-        server.current_session_logs = None
         await db.commit()
         await db.refresh(server)
 
@@ -635,8 +630,6 @@ async def restart_server(
         from datetime import datetime, timezone
         server.last_started_at = datetime.now(timezone.utc).replace(tzinfo=None)
         server.has_been_started = True
-        # Clear session logs for new session
-        server.current_session_logs = None
         await db.commit()
         await db.refresh(server)
 
@@ -751,24 +744,23 @@ async def get_server_logs(
     current_user: User = Depends(get_current_user),
 ):
     """
-    Get server session logs from database.
+    Get server container logs.
 
     Requires VIEW permission or higher.
 
     Args:
         server_id: Server ID
-        tail: Number of lines to retrieve (100, 500, 1000, 2000, 3000, 4000, 5000, or None for all)
+        tail: Number of lines to retrieve (default: 500, max: 2000)
         filter_type: Filter logs by type: 'minecraft', 'docker', or None for all (default: None)
-        since_start: Deprecated (logs are always from current session)
+        since_start: If True, only get logs since last_started_at (default: False)
         db: Database session
         current_user: Current authenticated user
 
     Returns:
-        Session logs as plain text
+        Container logs as plain text
     """
-    # Limit tail to prevent abuse (max 5000 lines)
-    if tail:
-        tail = min(tail, 5000)
+    # Limit tail to prevent abuse
+    tail = min(tail, 2000)
 
     # Get server
     result = await db.execute(select(Server).where(Server.id == server_id))
@@ -798,11 +790,23 @@ async def get_server_logs(
         )
 
     try:
-        # Get session logs from database
-        logs = await session_logs_service.get_session_logs(
-            server_id=server_id,
-            db=db,
-            tail=tail
+        # Calculate since timestamp if requested
+        since_timestamp = None
+        if since_start and server.last_started_at:
+            from datetime import timezone
+            # Convert last_started_at to unix timestamp
+            if server.last_started_at.tzinfo is None:
+                # Assume UTC if naive
+                started_at = server.last_started_at.replace(tzinfo=timezone.utc)
+            else:
+                started_at = server.last_started_at
+            since_timestamp = int(started_at.timestamp())
+
+        # Get container logs
+        logs = await docker_service.get_container_logs(
+            container_id=server.container_id,
+            tail=tail if not since_start else None,  # Don't limit if filtering by time
+            since=since_timestamp
         )
 
         # Apply filtering if requested
@@ -825,51 +829,6 @@ async def get_server_logs(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to retrieve logs: {str(e)}"
         )
-
-
-@router.delete("/{server_id}/logs")
-async def clear_session_logs(
-    server_id: int,
-    db: AsyncSession = Depends(get_db),
-    current_user: User = Depends(get_current_user),
-):
-    """
-    Clear current session logs from database.
-
-    Requires VIEW permission or higher.
-
-    Args:
-        server_id: Server ID
-        db: Database session
-        current_user: Current authenticated user
-
-    Returns:
-        Success message
-    """
-    # Get server
-    result = await db.execute(select(Server).where(Server.id == server_id))
-    server = result.scalar_one_or_none()
-
-    if not server:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Server with ID {server_id} not found"
-        )
-
-    # Check permissions
-    if not await PermissionService.has_server_permission(
-        current_user, server_id, ServerPermission.VIEW, db
-    ):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to view this server"
-        )
-
-    # Clear session logs
-    server.current_session_logs = None
-    await db.commit()
-
-    return {"message": "Session logs cleared successfully"}
 
 
 @router.post("/{server_id}/sync-properties", response_model=ServerResponse)

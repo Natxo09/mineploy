@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { useQuery, useMutation } from "@tanstack/react-query";
+import { useQuery } from "@tanstack/react-query";
 import { useWebSocket } from "@/hooks/use-websocket";
 import { serverService } from "@/services/server.service";
 import { Card } from "@/components/ui/card";
@@ -9,13 +9,6 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
 import {
   FileText,
   Download,
@@ -25,7 +18,6 @@ import {
   Clock,
 } from "lucide-react";
 import { useSystemSettings } from "@/hooks/use-system-settings";
-import { toast } from "sonner";
 
 interface ServerLogsProps {
   serverId: number;
@@ -38,12 +30,10 @@ export function ServerLogs({ serverId, isRunning = false }: ServerLogsProps) {
   const scrollAreaRef = useRef<HTMLDivElement>(null);
   const { timezone } = useSystemSettings();
 
-  const [linesToShow, setLinesToShow] = useState(500);
-
-  // Fetch initial container logs from session (stored in DB)
+  // Fetch initial container logs when component mounts (only from current session)
   const { data: initialLogs, isLoading: logsLoading } = useQuery({
-    queryKey: ["server-logs", serverId, linesToShow],
-    queryFn: () => serverService.getServerLogsV2(serverId, linesToShow, "docker"),
+    queryKey: ["server-logs", serverId],
+    queryFn: () => serverService.getServerLogsV2(serverId, 500, "docker", true), // since_start=true
     enabled: isRunning, // Only fetch when server is running
     refetchOnMount: true,
     refetchOnWindowFocus: false,
@@ -114,21 +104,9 @@ export function ServerLogs({ serverId, isRunning = false }: ServerLogsProps) {
     }
   };
 
-  // Clear logs mutation
-  const clearLogsMutation = useMutation({
-    mutationFn: () => serverService.clearSessionLogs(serverId),
-    onSuccess: () => {
-      setLogLines([]);
-      toast.success("Logs cleared successfully");
-    },
-    onError: () => {
-      toast.error("Failed to clear logs");
-    },
-  });
-
-  // Clear logs (local + database)
+  // Clear logs
   const handleClearLogs = () => {
-    clearLogsMutation.mutate();
+    setLogLines([]);
   };
 
   // Check for EULA warning
@@ -195,26 +173,6 @@ export function ServerLogs({ serverId, isRunning = false }: ServerLogsProps) {
           </div>
 
           <div className="flex items-center gap-2">
-            <Select
-              value={linesToShow.toString()}
-              onValueChange={(value) => setLinesToShow(parseInt(value))}
-            >
-              <SelectTrigger className="w-[120px] h-8">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="100">100 lines</SelectItem>
-                <SelectItem value="500">500 lines</SelectItem>
-                <SelectItem value="1000">1K lines</SelectItem>
-                <SelectItem value="2000">2K lines</SelectItem>
-                <SelectItem value="3000">3K lines</SelectItem>
-                <SelectItem value="4000">4K lines</SelectItem>
-                <SelectItem value="5000">5K lines</SelectItem>
-              </SelectContent>
-            </Select>
-
-            <Separator orientation="vertical" className="h-6" />
-
             <Button
               variant="outline"
               size="sm"
@@ -239,16 +197,9 @@ export function ServerLogs({ serverId, isRunning = false }: ServerLogsProps) {
               variant="outline"
               size="sm"
               onClick={handleClearLogs}
-              disabled={logLines.length === 0 || clearLogsMutation.isPending}
+              disabled={logLines.length === 0}
             >
-              {clearLogsMutation.isPending ? (
-                <>
-                  <Loader2 className="size-4 animate-spin" />
-                  Clearing...
-                </>
-              ) : (
-                "Clear"
-              )}
+              Clear
             </Button>
 
             <Button

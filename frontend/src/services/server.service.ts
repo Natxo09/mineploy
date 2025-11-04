@@ -97,28 +97,25 @@ export const serverService = {
   },
 
   /**
-   * Get server session logs with filtering support
+   * Get server container logs with filtering support
    */
   async getServerLogsV2(
     id: number,
     tail: number = 500,
-    filterType?: LogFilterType
+    filterType?: LogFilterType,
+    sinceStart: boolean = false
   ): Promise<LogsResponse> {
     const params = new URLSearchParams({ tail: tail.toString() });
     if (filterType) {
       params.append("filter_type", filterType);
+    }
+    if (sinceStart) {
+      params.append("since_start", "true");
     }
 
     const response = await apiClient.get<LogsResponse>(
       `/servers/${id}/logs?${params.toString()}`
     );
     return response.data;
-  },
-
-  /**
-   * Clear session logs from database
-   */
-  async clearSessionLogs(id: number): Promise<void> {
-    await apiClient.delete(`/servers/${id}/logs`);
   },
 };
