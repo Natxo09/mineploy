@@ -51,6 +51,7 @@ class Server(Base):
     port: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     rcon_port: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
     rcon_password: Mapped[str] = mapped_column(String(255), nullable=False)
+    query_port: Mapped[int] = mapped_column(Integer, unique=True, nullable=False)
 
     # Resources
     memory_mb: Mapped[int] = mapped_column(Integer, default=2048)

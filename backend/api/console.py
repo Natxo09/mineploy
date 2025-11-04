@@ -13,6 +13,7 @@ from models.server import Server, ServerStatus
 from models.user_server_permission import ServerPermission
 from schemas.console import CommandRequest, CommandResponse, PlayerListResponse
 from services.rcon_service import rcon_service
+from services.query_service import query_service
 from services.permission_service import PermissionService
 
 router = APIRouter()
@@ -118,28 +119,21 @@ async def get_players(
         )
 
     try:
-        # Get player count and list
+        # Get player count and list via Query Protocol (no log spam!)
         # Use container name instead of localhost when backend is in Docker
-        player_count = await rcon_service.get_player_count(
+        stats = await query_service.get_full_stats(
             host=server.container_name,
-            port=server.rcon_port,
-            password=server.rcon_password,
-        )
-
-        player_list = await rcon_service.get_online_players(
-            host=server.container_name,
-            port=server.rcon_port,
-            password=server.rcon_password,
+            port=server.query_port,
         )
 
         return PlayerListResponse(
-            online_players=player_count["online_players"],
-            max_players=player_count["max_players"],
-            players=player_list,
+            online_players=stats["online_players"],
+            max_players=stats["max_players"],
+            players=stats["players"],
         )
 
     except Exception as e:
-        # Return empty list if RCON fails
+        # Return empty list if Query fails
         print(f"⚠️  Failed to get players for server {server_id}: {e}")
         return PlayerListResponse(
             online_players=0,

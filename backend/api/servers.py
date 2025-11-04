@@ -30,6 +30,7 @@ from services.docker_service import docker_service
 from services.permission_service import PermissionService
 from services.websocket_service import manager
 from services.rcon_service import rcon_service
+from services.query_service import query_service
 from services.properties_parser import properties_parser
 from services.server_properties_service import server_properties_service
 from services.minecraft_logs_service import minecraft_logs_service
@@ -47,13 +48,13 @@ def _generate_rcon_password() -> str:
     return ''.join(secrets.choice(alphabet) for _ in range(32))
 
 
-async def _find_available_port(db: AsyncSession, is_rcon: bool = False) -> int:
+async def _find_available_port(db: AsyncSession, port_type: str = "server") -> int:
     """
     Find an available port in the configured range.
 
     Args:
         db: Database session
-        is_rcon: If True, search RCON port range, else server port range
+        port_type: Type of port to find ("server", "rcon", or "query")
 
     Returns:
         Available port number
@@ -61,11 +62,15 @@ async def _find_available_port(db: AsyncSession, is_rcon: bool = False) -> int:
     Raises:
         HTTPException: If no ports available
     """
-    if is_rcon:
+    if port_type == "rcon":
         start = settings.rcon_port_range_start
         end = settings.rcon_port_range_end
         column = Server.rcon_port
-    else:
+    elif port_type == "query":
+        start = settings.query_port_range_start
+        end = settings.query_port_range_end
+        column = Server.query_port
+    else:  # "server"
         start = settings.server_port_range_start
         end = settings.server_port_range_end
         column = Server.port
@@ -81,7 +86,7 @@ async def _find_available_port(db: AsyncSession, is_rcon: bool = False) -> int:
 
     raise HTTPException(
         status_code=status.HTTP_507_INSUFFICIENT_STORAGE,
-        detail=f"No available {'RCON' if is_rcon else 'server'} ports in range {start}-{end}"
+        detail=f"No available {port_type} ports in range {start}-{end}"
     )
 
 
@@ -126,11 +131,15 @@ async def create_server(
     # Assign ports if not provided
     port = server_data.port
     if not port:
-        port = await _find_available_port(db, is_rcon=False)
+        port = await _find_available_port(db, port_type="server")
 
     rcon_port = server_data.rcon_port
     if not rcon_port:
-        rcon_port = await _find_available_port(db, is_rcon=True)
+        rcon_port = await _find_available_port(db, port_type="rcon")
+
+    query_port = server_data.query_port
+    if not query_port:
+        query_port = await _find_available_port(db, port_type="query")
 
     # Check if ports are already in use
     if server_data.port:
@@ -147,6 +156,14 @@ async def create_server(
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail=f"RCON port {server_data.rcon_port} is already in use"
+            )
+
+    if server_data.query_port:
+        result = await db.execute(select(Server).where(Server.query_port == server_data.query_port))
+        if result.scalar_one_or_none():
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"Query port {server_data.query_port} is already in use"
             )
 
     # Generate RCON password
@@ -171,6 +188,7 @@ async def create_server(
         port=port,
         rcon_port=rcon_port,
         rcon_password=rcon_password,
+        query_port=query_port,
         memory_mb=server_data.memory_mb,
         container_name=container_name,
         status=ServerStatus.STOPPED,
@@ -240,6 +258,7 @@ async def create_server(
             port=port,
             rcon_port=rcon_port,
             rcon_password=rcon_password,
+            query_port=query_port,
             memory_mb=server_data.memory_mb,
             timezone=sys_settings.timezone,
         )
@@ -714,21 +733,20 @@ async def get_server_stats(
             # Docker might not be available, keep default values
             print(f"⚠️  Failed to get Docker stats for server {server_id}: {e}")
 
-        # Get player data via RCON
+        # Get player data via Query Protocol (no log spam!)
         try:
-            print(f"📊 [STATS] Getting player count for server {server_id} via RCON (port: {server.rcon_port})")
+            print(f"📊 [STATS] Getting player count for server {server_id} via Query Protocol (port: {server.query_port})")
             # Use container name instead of localhost when backend is in Docker
-            player_data = await rcon_service.get_player_count(
+            player_data = await query_service.get_player_count(
                 host=server.container_name,
-                port=server.rcon_port,
-                password=server.rcon_password,
+                port=server.query_port,
             )
             stats_data.update({
                 "online_players": player_data["online_players"],
                 "max_players": player_data["max_players"],
             })
         except Exception as e:
-            # RCON might not be ready yet, keep default values
+            # Query might not be ready yet, keep default values
             print(f"⚠️  Failed to get player count for server {server_id}: {e}")
 
     return ServerStats(**stats_data)

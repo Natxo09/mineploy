@@ -103,6 +103,14 @@ class Settings(BaseSettings):
         default=35664,
         description="Ending port for RCON"
     )
+    query_port_range_start: int = Field(
+        default=25665,
+        description="Starting port for Query Protocol"
+    )
+    query_port_range_end: int = Field(
+        default=25764,
+        description="Ending port for Query Protocol (supports 100 servers)"
+    )
 
     # Backups
     backup_retention_days: int = Field(
