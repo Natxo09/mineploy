@@ -50,6 +50,7 @@ async def execute_command(
         )
 
     # Check if server is running
+    print(f"🎮 [CONSOLE] Server {server_id} ({server.name}) status: {server.status}, container_id: {server.container_id}")
     if server.status != ServerStatus.RUNNING:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -58,6 +59,7 @@ async def execute_command(
 
     try:
         # Execute command via RCON
+        print(f"📝 [CONSOLE] Executing command '{command_data.command}' on server {server_id}")
         response = await rcon_service.execute_command(
             host="localhost",
             port=server.rcon_port,
@@ -72,6 +74,7 @@ async def execute_command(
         )
 
     except Exception as e:
+        print(f"❌ [CONSOLE] Failed to execute command on server {server_id}: {type(e).__name__}: {e}")
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Failed to execute command: {str(e)}"

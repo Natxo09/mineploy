@@ -39,8 +39,15 @@ class RconService:
         Raises:
             RconError: If RCON connection fails
         """
-        async with AsyncRconClient(host, port, password, timeout=float(timeout)) as client:
-            return await client.send_command(command)
+        print(f"🔧 [RCON] Attempting to connect to {host}:{port} for command: {command}")
+        try:
+            async with AsyncRconClient(host, port, password, timeout=float(timeout)) as client:
+                response = await client.send_command(command)
+                print(f"✅ [RCON] Command executed successfully")
+                return response
+        except Exception as e:
+            print(f"❌ [RCON] Connection failed to {host}:{port} - Error: {type(e).__name__}: {e}")
+            raise
 
     async def get_player_count(
         self, host: str, port: int, password: str

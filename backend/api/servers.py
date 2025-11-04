@@ -714,6 +714,7 @@ async def get_server_stats(
 
         # Get player data via RCON
         try:
+            print(f"📊 [STATS] Getting player count for server {server_id} via RCON (port: {server.rcon_port})")
             player_data = await rcon_service.get_player_count(
                 host="localhost",  # Container is on same host
                 port=server.rcon_port,
