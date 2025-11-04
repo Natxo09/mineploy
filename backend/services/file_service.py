@@ -125,65 +125,61 @@ class FileService:
             container = self.docker.containers.container(container_id)
             print(f"[DEBUG] Got container object")
 
-            # Execute ls command to list directory
-            # Using exec instead of get_archive for better directory listing
-            exec_instance = await container.exec(
-                cmd=['ls', '-la', '--time-style=+%Y-%m-%dT%H:%M:%S', container_path],
-            )
-            print(f"[DEBUG] Created exec instance")
+            # Get directory as tar archive
+            # This works even if container is stopped
+            tar_stream = await container.get_archive(container_path)
+            print(f"[DEBUG] Got tar stream, type: {type(tar_stream)}")
 
-            # Get output
-            output = await exec_instance.start(detach=False)
-            print(f"[DEBUG] Exec output type: {type(output)}")
-            print(f"[DEBUG] Exec output raw: {output}")
+            # Read tar data
+            if hasattr(tar_stream, 'read'):
+                tar_data = tar_stream.read()
+            else:
+                tar_data = tar_stream
 
-            output_str = output.decode('utf-8') if isinstance(output, bytes) else output
-            print(f"[DEBUG] Parsed output:\n{output_str}")
+            print(f"[DEBUG] Tar data size: {len(tar_data)} bytes")
+
+            # Open tar file
+            tar_file = tarfile.open(fileobj=io.BytesIO(tar_data))
+            print(f"[DEBUG] Opened tar file")
 
             files = []
-            lines = output_str.strip().split('\n')
-            print(f"[DEBUG] Total lines: {len(lines)}")
+            tar_members = tar_file.getmembers()
+            print(f"[DEBUG] Total tar members: {len(tar_members)}")
 
-            # Skip first line (total) and parse each line
-            for idx, line in enumerate(lines[1:], start=1):
-                if not line.strip():
-                    print(f"[DEBUG] Line {idx}: Empty, skipping")
+            # Get the base directory name
+            base_name = os.path.basename(container_path) if container_path != '/data/' else ''
+            print(f"[DEBUG] Base name: '{base_name}'")
+
+            for idx, member in enumerate(tar_members):
+                print(f"[DEBUG] Member {idx}: name={member.name}, type={member.type}, size={member.size}")
+
+                # Skip the base directory itself
+                if member.name == base_name or member.name == '.':
+                    print(f"[DEBUG] Skipping base directory")
                     continue
 
-                parts = line.split()
-                print(f"[DEBUG] Line {idx}: {len(parts)} parts - {parts}")
+                # Get relative name (remove base directory prefix)
+                if base_name and member.name.startswith(base_name + '/'):
+                    name = member.name[len(base_name) + 1:]
+                else:
+                    name = member.name
 
-                if len(parts) < 9:
-                    print(f"[DEBUG] Line {idx}: Not enough parts, skipping")
-                    continue
-
-                # Parse ls -la output
-                permissions = parts[0]
-                size_str = parts[4]
-                date_str = parts[5]
-                time_str = parts[6]
-                name = ' '.join(parts[7:])
-
-                # Skip . and ..
-                if name in ['.', '..']:
-                    print(f"[DEBUG] Line {idx}: Skipping {name}")
+                # Skip if contains / (subdirectory items)
+                if '/' in name:
+                    print(f"[DEBUG] Skipping subdirectory item: {name}")
                     continue
 
                 # Determine type
-                is_directory = permissions.startswith('d')
+                is_directory = member.isdir()
                 file_type = FileType.DIRECTORY if is_directory else FileType.FILE
 
-                # Parse size
-                try:
-                    size = int(size_str) if not is_directory else 0
-                except ValueError:
-                    size = 0
+                # Get size (0 for directories)
+                size = member.size if not is_directory else 0
 
-                # Parse timestamp
+                # Get modification time
                 try:
-                    timestamp_str = f"{date_str}T{time_str}"
-                    modified = datetime.fromisoformat(timestamp_str)
-                except (ValueError, TypeError):
+                    modified = datetime.fromtimestamp(member.mtime) if member.mtime else None
+                except (ValueError, OSError):
                     modified = None
 
                 # Build relative path
@@ -192,7 +188,7 @@ class FileService:
                 else:
                     file_path = f"{path}/{name}"
 
-                print(f"[DEBUG] Line {idx}: Adding file - name={name}, type={file_type}, size={size}")
+                print(f"[DEBUG] Adding file - name={name}, type={file_type}, size={size}")
 
                 files.append(FileInfo(
                     name=name,
@@ -204,6 +200,7 @@ class FileService:
                     extension=self._get_extension(name) if not is_directory else None,
                 ))
 
+            tar_file.close()
             print(f"[DEBUG] Total files found: {len(files)}")
 
             # Sort: directories first, then files alphabetically
