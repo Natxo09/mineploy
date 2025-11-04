@@ -123,7 +123,7 @@ export function ServerLogs({ serverId }: ServerLogsProps) {
   };
 
   return (
-    <Card className="flex flex-col h-[calc(100vh-20rem)] overflow-hidden">
+    <Card className="flex flex-col h-[calc(100vh-20rem)] overflow-hidden py-0">
       {/* Header */}
       <div className="flex items-center justify-between p-4 border-b flex-shrink-0">
         <div className="flex items-center gap-2">

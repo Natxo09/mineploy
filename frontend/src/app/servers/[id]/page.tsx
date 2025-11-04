@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import {
-  ArrowLeft,
   Play,
   Square,
   RotateCw,
@@ -18,6 +17,7 @@ import {
   Users,
   Loader2,
   FileText,
+  Server,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import type { ServerStatus } from "@/types";
@@ -91,7 +91,6 @@ export default function ServerDetailPage() {
       <div className="flex flex-col items-center justify-center h-[calc(100vh-4rem)] gap-4">
         <p className="text-muted-foreground">Server not found</p>
         <Button onClick={() => router.push("/servers")}>
-          <ArrowLeft />
           Back to Servers
         </Button>
       </div>
@@ -113,33 +112,28 @@ export default function ServerDetailPage() {
     <div className="space-y-6">
       {/* Header */}
       <div className="flex items-start justify-between">
-        <div className="space-y-1">
-          <div className="flex items-center gap-3">
-            <Button
-              variant="ghost"
-              size="icon"
-              onClick={() => router.push("/servers")}
-            >
-              <ArrowLeft />
-            </Button>
-            <div>
-              <div className="flex items-center gap-2">
-                <div className={cn("size-2 rounded-full", statusInfo.dotColor)} />
-                <h1 className="text-3xl font-bold tracking-tight">{server.name}</h1>
-              </div>
-              {server.description && (
-                <p className="text-muted-foreground mt-1">{server.description}</p>
-              )}
+        <div className="flex items-start gap-3">
+          <div className="relative">
+            <div className="size-12 rounded-lg border-2 bg-muted/50 flex items-center justify-center">
+              <Server className="size-6 text-muted-foreground" />
             </div>
+            <div className={cn("absolute -top-1 -right-1 size-3.5 rounded-full border-2 border-background", statusInfo.dotColor)} />
           </div>
-
-          <div className="flex items-center gap-2 ml-14">
-            <Badge variant="outline" className={cn("border", statusInfo.className)}>
-              {statusInfo.label}
-            </Badge>
-            <Badge variant="outline">{server.server_type}</Badge>
-            <Badge variant="outline">{server.version}</Badge>
-            <Badge variant="outline">Port: {server.port}</Badge>
+          <div className="flex flex-col gap-2">
+            <div className="flex items-center gap-2">
+              <h1 className="text-3xl font-bold tracking-tight">{server.name}</h1>
+              <div className="flex items-center gap-2">
+                <Badge variant="outline" className={cn("border", statusInfo.className)}>
+                  {statusInfo.label}
+                </Badge>
+                <Badge variant="outline">{server.server_type}</Badge>
+                <Badge variant="outline">{server.version}</Badge>
+                <Badge variant="outline">Port: {server.port}</Badge>
+              </div>
+            </div>
+            {server.description && (
+              <p className="text-muted-foreground">{server.description}</p>
+            )}
           </div>
         </div>
 

@@ -158,7 +158,7 @@ export function ServerConsole({ serverId, isRunning }: ServerConsoleProps) {
   return (
     <div className="grid gap-4 lg:grid-cols-4 h-[calc(100vh-20rem)]">
       {/* Console Terminal */}
-      <Card className="lg:col-span-3 flex flex-col h-full">
+      <Card className="lg:col-span-3 flex flex-col h-full py-0">
         {/* Console Header */}
         <div className="flex items-center justify-between p-4 border-b">
           <div className="flex items-center gap-2">
@@ -251,7 +251,7 @@ export function ServerConsole({ serverId, isRunning }: ServerConsoleProps) {
       </Card>
 
       {/* Players Sidebar */}
-      <Card className="h-full flex flex-col">
+      <Card className="h-full flex flex-col py-0">
         <div className="p-4 border-b">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-2">

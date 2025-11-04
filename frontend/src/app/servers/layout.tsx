@@ -7,15 +7,31 @@ import { Separator } from "@/components/ui/separator";
 import {
   Breadcrumb,
   BreadcrumbItem,
+  BreadcrumbLink,
   BreadcrumbList,
   BreadcrumbPage,
+  BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
+import { usePathname, useParams } from "next/navigation";
+import { useServer } from "@/hooks/use-servers";
+import Link from "next/link";
 
 export default function ServersLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const pathname = usePathname();
+  const params = useParams();
+  const serverId = params.id ? parseInt(params.id as string) : null;
+
+  // Fetch server data if we're on a server detail page
+  const { data: server } = useServer(serverId!, {
+    enabled: !!serverId,
+  });
+
+  const isServerDetail = pathname.includes("/servers/") && serverId;
+
   return (
     <AuthGuard>
       <SidebarProvider>
@@ -27,8 +43,22 @@ export default function ServersLayout({
             <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
-                  <BreadcrumbPage>Servers</BreadcrumbPage>
+                  {isServerDetail ? (
+                    <BreadcrumbLink asChild>
+                      <Link href="/servers">Servers</Link>
+                    </BreadcrumbLink>
+                  ) : (
+                    <BreadcrumbPage>Servers</BreadcrumbPage>
+                  )}
                 </BreadcrumbItem>
+                {isServerDetail && (
+                  <>
+                    <BreadcrumbSeparator />
+                    <BreadcrumbItem>
+                      <BreadcrumbPage>{server?.name || "Loading..."}</BreadcrumbPage>
+                    </BreadcrumbItem>
+                  </>
+                )}
               </BreadcrumbList>
             </Breadcrumb>
           </header>
