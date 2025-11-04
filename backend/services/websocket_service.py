@@ -309,7 +309,9 @@ class ConnectionManager:
 
                 # Create exec instance for tail -f
                 exec_instance = await container.exec(command)
-                stream = exec_instance.start(stream=True)
+
+                # Start the exec and get the stream
+                stream = exec_instance.start(detach=False)
 
                 # Stream lines
                 async for chunk in stream:
